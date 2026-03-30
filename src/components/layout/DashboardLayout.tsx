@@ -1,0 +1,67 @@
+import { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import { AppSidebar } from './AppSidebar';
+import { Menu, LogOut, ArrowRightLeft } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+export function DashboardLayout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout, switchRole } = useAuth();
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Top bar */}
+        <header className="h-16 border-b border-border flex items-center justify-between px-4 lg:px-6 glass-card sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="hidden sm:block">
+              <p className="text-sm text-muted-foreground">Bem-vindo,</p>
+              <p className="text-sm font-semibold text-foreground">{user?.name}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Badge
+              variant="outline"
+              className="border-primary/30 text-primary cursor-pointer hover:bg-primary/10 transition-colors"
+              onClick={switchRole}
+            >
+              <ArrowRightLeft className="h-3 w-3 mr-1" />
+              {user?.role === 'admin' ? 'Admin' : 'Integrador'}
+            </Badge>
+            <Button variant="ghost" size="icon" onClick={logout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

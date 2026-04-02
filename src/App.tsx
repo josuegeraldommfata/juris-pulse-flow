@@ -13,6 +13,8 @@ import LeadDetailPage from "@/pages/LeadDetailPage";
 import KanbanPage from "@/pages/KanbanPage";
 import AdminPage from "@/pages/AdminPage";
 import SystemStatusPage from "@/pages/SystemStatusPage";
+import ApiConnectionsPage from "@/pages/ApiConnectionsPage";
+import ScriptEditorPage from "@/pages/ScriptEditorPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -35,6 +37,8 @@ const App = () => (
               <Route path="kanban" element={<KanbanPage />} />
               <Route path="admin" element={<AdminPage />} />
               <Route path="status" element={<SystemStatusPage />} />
+              <Route path="api-connections" element={<ApiConnectionsPage />} />
+              <Route path="script-editor" element={<ScriptEditorPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

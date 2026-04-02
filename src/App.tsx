@@ -13,6 +13,8 @@ import LeadDetailPage from "@/pages/LeadDetailPage";
 import KanbanPage from "@/pages/KanbanPage";
 import AdminPage from "@/pages/AdminPage";
 import SystemStatusPage from "@/pages/SystemStatusPage";
+import ApiConnectionsPage from "@/pages/ApiConnectionsPage";
+import ScriptEditorPage from "@/pages/ScriptEditorPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();

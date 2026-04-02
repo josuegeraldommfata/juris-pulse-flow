@@ -8,6 +8,8 @@ import {
   Filter,
   Zap,
   X,
+  Columns3,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';

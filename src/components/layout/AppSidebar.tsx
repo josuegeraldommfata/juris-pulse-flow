@@ -37,7 +37,6 @@ const adminLinks = [
   { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
   { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
   { to: '/dashboard/script-editor', label: 'Roteiro IA', icon: FileText },
-  { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
 ];
 
 interface Props {

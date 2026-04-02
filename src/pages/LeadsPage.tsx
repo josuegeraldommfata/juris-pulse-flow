@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Filter, Eye } from 'lucide-react';
+import { Filter, Eye, Columns3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { mockLeads } from '@/data/mockData';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
 import { ConversationModal } from '@/components/dashboard/ConversationModal';

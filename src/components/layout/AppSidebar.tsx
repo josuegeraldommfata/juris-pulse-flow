@@ -23,6 +23,8 @@ const integradorLinks = [
   { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter },
   { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
   { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
+  { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
+  { to: '/dashboard/script-editor', label: 'Roteiro IA', icon: FileText },
 ];
 
 const adminLinks = [

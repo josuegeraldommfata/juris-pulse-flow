@@ -30,7 +30,10 @@ export default function LeadsPage() {
           <Filter className="h-6 w-6 text-primary" />
           Triagem de Leads
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Leads processados pela IA com score de urgência</p>
+         <p className="text-sm text-muted-foreground mt-1">Leads processados pela IA com score de urgência</p>
+         <Button variant="outline" size="sm" className="mt-2 rounded-xl gap-1.5" onClick={() => navigate('/dashboard/kanban')}>
+           <Columns3 className="h-3.5 w-3.5" /> Ver Kanban
+         </Button>
       </motion.div>
 
       <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}>

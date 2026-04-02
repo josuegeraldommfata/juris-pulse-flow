@@ -14,6 +14,7 @@ const fadeIn = {
 };
 
 export default function LeadsPage() {
+  const navigate = useNavigate();
   const [conversationOpen, setConversationOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState('');
 

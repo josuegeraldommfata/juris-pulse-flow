@@ -7,6 +7,8 @@ import { StatsCard } from '@/components/dashboard/StatsCard';
 import { TokenPurchaseModal } from '@/components/dashboard/TokenPurchaseModal';
 import { mockLeads, mockConsumptionHistory } from '@/data/mockData';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
+import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
+import { FeeCalculator } from '@/components/dashboard/FeeCalculator';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -71,8 +73,18 @@ export default function DashboardHome() {
         </div>
       </motion.div>
 
-      {/* Recent consumption */}
+      {/* Performance Chart */}
       <motion.div initial="hidden" animate="visible" custom={4} variants={fadeIn}>
+        <PerformanceChart />
+      </motion.div>
+
+      {/* Fee Calculator */}
+      <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn}>
+        <FeeCalculator />
+      </motion.div>
+
+      {/* Recent consumption */}
+      <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn}>
         <div className="glass-card rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-4">Histórico de Consumo</h3>
           <div className="overflow-x-auto">

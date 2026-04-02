@@ -1,10 +1,10 @@
 export const mockLeads = [
-  { id: '1', name: 'João Mendes', phone: '(11) 99999-1234', subject: 'Acidente de Trabalho', score: 'hot' as const, status: 'triado', date: '2026-03-29T14:30:00', tokenCost: 1 },
-  { id: '2', name: 'Maria Oliveira', phone: '(21) 98888-5678', subject: 'Revisão Trabalhista', score: 'warm' as const, status: 'triado', date: '2026-03-29T11:15:00', tokenCost: 1 },
-  { id: '3', name: 'Carlos Souza', phone: '(31) 97777-9012', subject: 'Demissão sem Justa Causa', score: 'hot' as const, status: 'pendente', date: '2026-03-28T09:45:00', tokenCost: 1 },
-  { id: '4', name: 'Ana Costa', phone: '(41) 96666-3456', subject: 'Horas Extras', score: 'cold' as const, status: 'triado', date: '2026-03-28T16:20:00', tokenCost: 1 },
-  { id: '5', name: 'Pedro Lima', phone: '(51) 95555-7890', subject: 'Insalubridade', score: 'warm' as const, status: 'pendente', date: '2026-03-27T10:00:00', tokenCost: 1 },
-  { id: '6', name: 'Lucia Ferreira', phone: '(61) 94444-2345', subject: 'Assédio Moral', score: 'hot' as const, status: 'triado', date: '2026-03-27T13:30:00', tokenCost: 1 },
+  { id: '1', name: 'João Mendes', phone: '(11) 99999-1234', subject: 'Acidente de Trabalho', score: 'hot' as const, status: 'triado', date: '2026-03-29T14:30:00', tokenCost: 1, area: 'Trabalhista', hasLawyer: false, kanbanStage: 'triagem' as const },
+  { id: '2', name: 'Maria Oliveira', phone: '(21) 98888-5678', subject: 'Revisão Trabalhista', score: 'warm' as const, status: 'triado', date: '2026-03-29T11:15:00', tokenCost: 1, area: 'Trabalhista', hasLawyer: true, kanbanStage: 'documentacao' as const },
+  { id: '3', name: 'Carlos Souza', phone: '(31) 97777-9012', subject: 'Demissão sem Justa Causa', score: 'hot' as const, status: 'pendente', date: '2026-03-28T09:45:00', tokenCost: 1, area: 'Trabalhista', hasLawyer: false, kanbanStage: 'aguardando' as const },
+  { id: '4', name: 'Ana Costa', phone: '(41) 96666-3456', subject: 'Horas Extras', score: 'cold' as const, status: 'triado', date: '2026-03-28T16:20:00', tokenCost: 1, area: 'Trabalhista', hasLawyer: false, kanbanStage: 'triagem' as const },
+  { id: '5', name: 'Pedro Lima', phone: '(51) 95555-7890', subject: 'Insalubridade', score: 'warm' as const, status: 'pendente', date: '2026-03-27T10:00:00', tokenCost: 1, area: 'Previdenciário', hasLawyer: true, kanbanStage: 'contrato' as const },
+  { id: '6', name: 'Lucia Ferreira', phone: '(61) 94444-2345', subject: 'Assédio Moral', score: 'hot' as const, status: 'triado', date: '2026-03-27T13:30:00', tokenCost: 1, area: 'Trabalhista', hasLawyer: false, kanbanStage: 'documentacao' as const },
 ];
 
 export const mockConsumptionHistory = [
@@ -38,4 +38,54 @@ export const tokenPlans = [
   { id: 'basic', name: 'Básico', tokens: 500, price: 149.90, popular: false },
   { id: 'pro', name: 'Profissional', tokens: 1000, price: 249.90, popular: true },
   { id: 'enterprise', name: 'Empresarial', tokens: 2500, price: 499.90, popular: false },
+];
+
+export const mockLeadDocuments = [
+  { id: '1', name: 'RG - Frente.jpg', type: 'image', status: 'approved' as const, date: '2026-03-29' },
+  { id: '2', name: 'RG - Verso.jpg', type: 'image', status: 'approved' as const, date: '2026-03-29' },
+  { id: '3', name: 'CAT - Comunicação de Acidente.pdf', type: 'pdf', status: 'pending' as const, date: '2026-03-28' },
+  { id: '4', name: 'Contrato de Trabalho.pdf', type: 'pdf', status: 'pending' as const, date: '2026-03-28' },
+  { id: '5', name: 'Holerite - Último Mês.pdf', type: 'pdf', status: 'rejected' as const, date: '2026-03-27' },
+];
+
+export const mockAIAnalysis = {
+  pontosFortes: [
+    'CAT registrado em tempo hábil',
+    'Testemunhas no local do acidente',
+    'Histórico de exposição a riscos documentado',
+    'Laudo médico com nexo causal confirmado',
+  ],
+  pontosFracos: [
+    'Empregador pode alegar negligência do empregado',
+    'Falta exame periódico recente',
+  ],
+  resumo: 'Caso com alta probabilidade de êxito. Documentação principal presente. Recomenda-se coleta de provas adicionais sobre condições do ambiente de trabalho.',
+  areaJuridica: 'Trabalhista - Acidente de Trabalho',
+  valorEstimado: 85000,
+};
+
+export const mockPerformanceData = [
+  { month: 'Jan', leadsTotal: 42, leadsQualificados: 28 },
+  { month: 'Fev', leadsTotal: 55, leadsQualificados: 38 },
+  { month: 'Mar', leadsTotal: 68, leadsQualificados: 45 },
+  { month: 'Abr', leadsTotal: 73, leadsQualificados: 52 },
+  { month: 'Mai', leadsTotal: 90, leadsQualificados: 61 },
+  { month: 'Jun', leadsTotal: 85, leadsQualificados: 58 },
+];
+
+export const mockSystemHealth = [
+  { name: 'Evolution API', status: 'online' as const, latency: '45ms', uptime: '99.9%', lastCheck: '2026-03-29T14:30:00' },
+  { name: 'PostgreSQL', status: 'online' as const, latency: '12ms', uptime: '99.99%', lastCheck: '2026-03-29T14:30:00' },
+  { name: 'n8n Workflows', status: 'online' as const, latency: '120ms', uptime: '99.5%', lastCheck: '2026-03-29T14:30:00' },
+  { name: 'Mercado Pago', status: 'warning' as const, latency: '340ms', uptime: '98.2%', lastCheck: '2026-03-29T14:25:00' },
+  { name: 'OpenAI GPT', status: 'online' as const, latency: '890ms', uptime: '99.7%', lastCheck: '2026-03-29T14:30:00' },
+];
+
+export type KanbanStage = 'triagem' | 'documentacao' | 'aguardando' | 'contrato';
+
+export const kanbanColumns: { id: KanbanStage; title: string }[] = [
+  { id: 'triagem', title: 'Triagem IA' },
+  { id: 'documentacao', title: 'Documentação Pendente' },
+  { id: 'aguardando', title: 'Aguardando Advogado' },
+  { id: 'contrato', title: 'Contrato Assinado' },
 ];

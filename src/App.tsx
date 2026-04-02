@@ -9,7 +9,10 @@ import DashboardHome from "@/pages/DashboardHome";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import WalletPage from "@/pages/WalletPage";
 import LeadsPage from "@/pages/LeadsPage";
+import LeadDetailPage from "@/pages/LeadDetailPage";
+import KanbanPage from "@/pages/KanbanPage";
 import AdminPage from "@/pages/AdminPage";
+import SystemStatusPage from "@/pages/SystemStatusPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -28,7 +31,10 @@ const App = () => (
               <Route path="whatsapp" element={<WhatsAppPage />} />
               <Route path="wallet" element={<WalletPage />} />
               <Route path="leads" element={<LeadsPage />} />
+              <Route path="leads/:id" element={<LeadDetailPage />} />
+              <Route path="kanban" element={<KanbanPage />} />
               <Route path="admin" element={<AdminPage />} />
+              <Route path="status" element={<SystemStatusPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

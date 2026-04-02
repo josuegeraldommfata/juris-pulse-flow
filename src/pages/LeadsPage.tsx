@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Filter, Eye } from 'lucide-react';
+import { Filter, Eye, Columns3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { mockLeads } from '@/data/mockData';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
 import { ConversationModal } from '@/components/dashboard/ConversationModal';
@@ -13,6 +14,7 @@ const fadeIn = {
 };
 
 export default function LeadsPage() {
+  const navigate = useNavigate();
   const [conversationOpen, setConversationOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState('');
 
@@ -28,7 +30,10 @@ export default function LeadsPage() {
           <Filter className="h-6 w-6 text-primary" />
           Triagem de Leads
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Leads processados pela IA com score de urgência</p>
+         <p className="text-sm text-muted-foreground mt-1">Leads processados pela IA com score de urgência</p>
+         <Button variant="outline" size="sm" className="mt-2 rounded-xl gap-1.5" onClick={() => navigate('/dashboard/kanban')}>
+           <Columns3 className="h-3.5 w-3.5" /> Ver Kanban
+         </Button>
       </motion.div>
 
       <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}>
@@ -60,14 +65,11 @@ export default function LeadsPage() {
                     </td>
                     <td className="py-3 text-muted-foreground">{new Date(lead.date).toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-primary hover:bg-primary/10 rounded-xl gap-1"
-                        onClick={() => openConversation(lead.name)}
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Ver Conversa
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 rounded-xl gap-1" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
+                          <Eye className="h-3.5 w-3.5" /> Detalhes
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

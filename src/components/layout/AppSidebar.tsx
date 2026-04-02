@@ -19,6 +19,8 @@ const integradorLinks = [
   { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
   { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
   { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter },
+  { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
+  { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
 ];
 
 const adminLinks = [
@@ -27,6 +29,8 @@ const adminLinks = [
   { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
   { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
   { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter },
+  { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
+  { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
 ];
 
 interface Props {

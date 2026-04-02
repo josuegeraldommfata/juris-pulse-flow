@@ -65,14 +65,11 @@ export default function LeadsPage() {
                     </td>
                     <td className="py-3 text-muted-foreground">{new Date(lead.date).toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-primary hover:bg-primary/10 rounded-xl gap-1"
-                        onClick={() => openConversation(lead.name)}
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Ver Conversa
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 rounded-xl gap-1" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
+                          <Eye className="h-3.5 w-3.5" /> Detalhes
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

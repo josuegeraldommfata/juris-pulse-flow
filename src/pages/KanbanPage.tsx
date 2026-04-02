@@ -11,11 +11,15 @@ const fadeIn = {
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4 } }),
 };
 
-type Lead = typeof mockLeads[0];
+interface Lead {
+  id: string; name: string; phone: string; subject: string;
+  score: 'hot' | 'warm' | 'cold'; status: string; date: string;
+  tokenCost: number; area: string; hasLawyer: boolean; kanbanStage: KanbanStage;
+}
 
 export default function KanbanPage() {
   const navigate = useNavigate();
-  const [leads, setLeads] = useState(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>(mockLeads as Lead[]);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
   const [dragOverCol, setDragOverCol] = useState<KanbanStage | null>(null);
 

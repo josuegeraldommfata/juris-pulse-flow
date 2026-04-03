@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { Users, DollarSign, Zap, Wifi, Plus, Loader2 } from 'lucide-react';
 import { mockUsers, mockInstances } from '@/data/mockData';
 import { StatsCard } from '@/components/dashboard/StatsCard';
+import { AISuccessRate } from '@/components/dashboard/AISuccessRate';
+import { TokenConsumptionChart } from '@/components/dashboard/TokenConsumptionChart';
+import { CriticalCreditsMonitor } from '@/components/dashboard/CriticalCreditsMonitor';
+import { ClientRanking } from '@/components/dashboard/ClientRanking';
+import { ConversationHeatmap } from '@/components/dashboard/ConversationHeatmap';
+import { AIErrorLogs } from '@/components/dashboard/AIErrorLogs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -117,8 +123,31 @@ export default function AdminPage() {
         </div>
       </motion.div>
 
+      {/* Admin-specific widgets */}
+      <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      >
+        <AISuccessRate />
+        <TokenConsumptionChart />
+      </motion.div>
+
+      <motion.div initial="hidden" animate="visible" custom={4} variants={fadeIn}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      >
+        <CriticalCreditsMonitor />
+        <ClientRanking />
+      </motion.div>
+
+      <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn}>
+        <ConversationHeatmap />
+      </motion.div>
+
+      <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn}>
+        <AIErrorLogs />
+      </motion.div>
+
       {/* Instance health */}
-      <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}>
+      <motion.div initial="hidden" animate="visible" custom={7} variants={fadeIn}>
         <div className="glass-card rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-4">Saúde das Instâncias (Evolution API)</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -132,7 +161,7 @@ export default function AdminPage() {
                   'rounded-full',
                   inst.status === 'connected'
                     ? 'bg-accent/10 text-accent border-accent/20'
-                    : 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : 'bg-destructive/10 text-destructive border-destructive/20'
                 )}>
                   {inst.status === 'connected' ? 'Online' : 'Offline'}
                 </Badge>

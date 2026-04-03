@@ -15,12 +15,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { mockLeads } from '@/data/mockData';
+
+const urgentCount = mockLeads.filter(l => l.score === 'hot').length;
 
 const integradorLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
   { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
-  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter },
+  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter, badge: urgentCount },
   { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
   { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
   { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
@@ -32,7 +35,7 @@ const adminLinks = [
   { to: '/dashboard/admin', label: 'Painel Admin', icon: Users },
   { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
   { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
-  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter },
+  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter, badge: urgentCount },
   { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
   { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
   { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
@@ -56,7 +59,6 @@ export function AppSidebar({ open, onClose }: Props) {
         open ? 'translate-x-0' : '-translate-x-full'
       )}
     >
-      {/* Logo */}
       <div className="h-16 flex items-center justify-between px-5 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center glow-electric">
@@ -69,7 +71,6 @@ export function AppSidebar({ open, onClose }: Props) {
         </Button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {links.map((link) => {
           const isActive = location.pathname === link.to;
@@ -79,20 +80,26 @@ export function AppSidebar({ open, onClose }: Props) {
               to={link.to}
               onClick={onClose}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                'flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
                 isActive
                   ? 'bg-primary/10 text-primary glow-electric'
                   : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
               )}
             >
-              <link.icon className="h-4 w-4" />
-              {link.label}
+              <span className="flex items-center gap-3">
+                <link.icon className="h-4 w-4" />
+                {link.label}
+              </span>
+              {'badge' in link && link.badge ? (
+                <span className="h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                  {link.badge}
+                </span>
+              ) : null}
             </NavLink>
           );
         })}
       </nav>
 
-      {/* Footer */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">

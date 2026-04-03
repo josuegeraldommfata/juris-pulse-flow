@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { HotLeadNotifier } from '@/components/dashboard/HotLeadNotifier';
+import { NotificationBell } from '@/components/dashboard/NotificationBell';
+import { VacationToggle } from '@/components/dashboard/VacationToggle';
 import { Menu, LogOut, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,7 +15,6 @@ export function DashboardLayout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
@@ -21,12 +22,9 @@ export function DashboardLayout() {
         />
       )}
 
-      {/* Sidebar */}
       <AppSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top bar */}
         <header className="h-16 border-b border-border flex items-center justify-between px-4 lg:px-6 glass-card sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <Button
@@ -44,6 +42,8 @@ export function DashboardLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <VacationToggle />
+            <NotificationBell />
             <Badge
               variant="outline"
               className="border-primary/30 text-primary cursor-pointer hover:bg-primary/10 transition-colors"
@@ -58,7 +58,6 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
           <HotLeadNotifier />
           <Outlet />

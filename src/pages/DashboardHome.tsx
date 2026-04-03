@@ -9,6 +9,13 @@ import { mockLeads, mockConsumptionHistory } from '@/data/mockData';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { FeeCalculator } from '@/components/dashboard/FeeCalculator';
+import { ROICard } from '@/components/dashboard/ROICard';
+import { UpcomingAppointments } from '@/components/dashboard/UpcomingAppointments';
+import { LeadOriginChart } from '@/components/dashboard/LeadOriginChart';
+import { HotLeadAlert } from '@/components/dashboard/HotLeadAlert';
+import { AISuccessRate } from '@/components/dashboard/AISuccessRate';
+import { TokenConsumptionChart } from '@/components/dashboard/TokenConsumptionChart';
+import { ClientRanking } from '@/components/dashboard/ClientRanking';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -21,18 +28,31 @@ const fadeIn = {
 export default function DashboardHome() {
   const { user } = useAuth();
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <motion.div initial="hidden" animate="visible" custom={0} variants={fadeIn}>
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">{user?.office} — Visão geral do sistema</p>
+        <p className="text-sm text-muted-foreground">{user?.office} — {isAdmin ? 'Painel Administrativo' : 'Visão geral do sistema'}</p>
       </motion.div>
 
-      {/* Wallet */}
-      <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}>
-        <WalletCard onBuyTokens={() => setPurchaseOpen(true)} />
-      </motion.div>
+      {/* Hot Lead Alert - Integrador only */}
+      {!isAdmin && (
+        <motion.div initial="hidden" animate="visible" custom={0.5} variants={fadeIn}>
+          <HotLeadAlert />
+        </motion.div>
+      )}
+
+      {/* Wallet + ROI row */}
+      {!isAdmin && (
+        <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        >
+          <WalletCard onBuyTokens={() => setPurchaseOpen(true)} />
+          <ROICard leadsProcessed={150} />
+        </motion.div>
+      )}
 
       {/* Stats */}
       <motion.div initial="hidden" animate="visible" custom={2} variants={fadeIn}
@@ -44,8 +64,33 @@ export default function DashboardHome() {
         <StatsCard title="Instâncias Ativas" value="2" subtitle="WhatsApp" icon={MessageSquare} variant="electric" />
       </motion.div>
 
+      {/* Admin-specific widgets */}
+      {isAdmin && (
+        <>
+          <motion.div initial="hidden" animate="visible" custom={2.5} variants={fadeIn}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+          >
+            <AISuccessRate />
+            <TokenConsumptionChart />
+          </motion.div>
+          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}>
+            <ClientRanking />
+          </motion.div>
+        </>
+      )}
+
+      {/* Integrador-specific: Appointments + Origin chart */}
+      {!isAdmin && (
+        <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+        >
+          <UpcomingAppointments />
+          <LeadOriginChart />
+        </motion.div>
+      )}
+
       {/* Recent leads */}
-      <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}>
+      <motion.div initial="hidden" animate="visible" custom={4} variants={fadeIn}>
         <div className="glass-card rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-4">Leads Recentes</h3>
           <div className="overflow-x-auto">
@@ -74,17 +119,19 @@ export default function DashboardHome() {
       </motion.div>
 
       {/* Performance Chart */}
-      <motion.div initial="hidden" animate="visible" custom={4} variants={fadeIn}>
+      <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn}>
         <PerformanceChart />
       </motion.div>
 
-      {/* Fee Calculator */}
-      <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn}>
-        <FeeCalculator />
-      </motion.div>
+      {/* Fee Calculator - Integrador only */}
+      {!isAdmin && (
+        <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn}>
+          <FeeCalculator />
+        </motion.div>
+      )}
 
       {/* Recent consumption */}
-      <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn}>
+      <motion.div initial="hidden" animate="visible" custom={7} variants={fadeIn}>
         <div className="glass-card rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-4">Histórico de Consumo</h3>
           <div className="overflow-x-auto">
@@ -104,7 +151,7 @@ export default function DashboardHome() {
                     <td className="py-3 text-muted-foreground">{new Date(h.date).toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 text-foreground font-medium">{h.lead}</td>
                     <td className="py-3 text-muted-foreground">{h.action}</td>
-                    <td className="py-3 text-right text-red-400">-{h.cost}</td>
+                    <td className="py-3 text-right text-destructive">-{h.cost}</td>
                     <td className="py-3 text-right text-accent font-medium">{h.balance}</td>
                   </tr>
                 ))}

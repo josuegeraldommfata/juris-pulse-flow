@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Filter, Eye, Columns3, Download, Search, X } from 'lucide-react';
+import { Filter, Eye, Columns3, Download, Search, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { mockLeads } from '@/data/mockData';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
+import { LeadConfidenceBar } from '@/components/dashboard/LeadConfidenceBar';
 import { ConversationModal } from '@/components/dashboard/ConversationModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 const fadeIn = {
@@ -16,10 +18,10 @@ const fadeIn = {
 
 export default function LeadsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [conversationOpen, setConversationOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState('');
 
-  // Filters
   const [scoreFilter, setScoreFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -60,6 +62,12 @@ export default function LeadsPage() {
     toast.success('Dossiê exportado com sucesso!');
   };
 
+  const handleAssumir = (lead: typeof mockLeads[0]) => {
+    const msg = `Olá ${lead.name}, sou ${user?.name}, a minha assistente me passou seu caso sobre "${lead.subject}". Gostaria de conversar sobre como posso ajudá-lo(a). Podemos agendar uma reunião?`;
+    const url = `https://wa.me/${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <motion.div initial="hidden" animate="visible" custom={0} variants={fadeIn}>
@@ -81,7 +89,6 @@ export default function LeadsPage() {
         </div>
       </motion.div>
 
-      {/* Advanced Filters */}
       {showFilters && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="glass-card rounded-2xl p-4">
           <div className="flex flex-wrap items-end gap-4">
@@ -129,9 +136,8 @@ export default function LeadsPage() {
               <thead>
                 <tr className="text-muted-foreground text-xs border-b border-border">
                   <th className="text-left pb-3 font-medium">Lead</th>
-                  <th className="text-left pb-3 font-medium">Telefone</th>
                   <th className="text-left pb-3 font-medium">Assunto</th>
-                  <th className="text-left pb-3 font-medium">Score</th>
+                  <th className="text-left pb-3 font-medium">Score / Confiança</th>
                   <th className="text-left pb-3 font-medium">Status</th>
                   <th className="text-left pb-3 font-medium">Data</th>
                   <th className="text-right pb-3 font-medium">Ações</th>
@@ -140,10 +146,17 @@ export default function LeadsPage() {
               <tbody>
                 {filteredLeads.map((lead) => (
                   <tr key={lead.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                    <td className="py-3 font-medium text-foreground">{lead.name}</td>
-                    <td className="py-3 text-muted-foreground">{lead.phone}</td>
+                    <td className="py-3">
+                      <p className="font-medium text-foreground">{lead.name}</p>
+                      <p className="text-xs text-muted-foreground">{lead.phone}</p>
+                    </td>
                     <td className="py-3 text-muted-foreground">{lead.subject}</td>
-                    <td className="py-3"><LeadScoreBadge score={lead.score} /></td>
+                    <td className="py-3 min-w-[160px]">
+                      <LeadScoreBadge score={lead.score} />
+                      <div className="mt-1.5">
+                        <LeadConfidenceBar score={lead.score} />
+                      </div>
+                    </td>
                     <td className="py-3">
                       <Badge variant="outline" className="rounded-full text-xs border-border">
                         {lead.status}
@@ -151,15 +164,24 @@ export default function LeadsPage() {
                     </td>
                     <td className="py-3 text-muted-foreground">{new Date(lead.date).toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 text-right">
-                      <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 rounded-xl gap-1" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
-                        <Eye className="h-3.5 w-3.5" /> Detalhes
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 rounded-xl gap-1" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
+                          <Eye className="h-3.5 w-3.5" /> Detalhes
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl gap-1"
+                          onClick={() => handleAssumir(lead)}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Assumir
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {filteredLeads.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-muted-foreground">Nenhum lead encontrado com os filtros aplicados</td>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum lead encontrado com os filtros aplicados</td>
                   </tr>
                 )}
               </tbody>

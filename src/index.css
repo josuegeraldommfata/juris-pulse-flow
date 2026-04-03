@@ -90,4 +90,12 @@
   .text-gradient-emerald {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--emerald))] to-emerald-300;
   }
+
+  .blur-values .blur-target,
+  .blur-values .text-gradient-emerald,
+  .blur-values .text-gradient-electric {
+    filter: blur(8px);
+    user-select: none;
+    transition: filter 0.3s ease;
+  }
 }

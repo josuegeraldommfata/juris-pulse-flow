@@ -32,13 +32,24 @@ export default function WhatsAppPage() {
 
   // Mutação para Criar Instância (Escalabilidade SaaS)
   const createMutation = useMutation({
-    mutationFn: (name: string) => apiService.createInstance(name),
+    mutationFn: (data: { name: string, userId: number }) => apiService.createInstance(data.name, data.userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-instances'] });
-      toast.success("🤖 Robô Jurídico inicializado! Agora é só conectar.");
+      toast.success('🤖 Robô Jurídico inicializado! Agora é só conectar.');
     },
-    onError: (err: any) => toast.error("Falha ao criar robô: " + (err.response?.data?.details || err.message)),
+    onError: (error: any) => {
+      toast.error(`Falha ao criar robô: ${error.message}`);
+    }
   });
+
+  const handleAutoCreate = () => {
+    if (!user?.id) {
+        toast.error('Você precisa estar logado para criar um robô.');
+        return;
+    }
+    const instanceName = `dra._${Math.floor(Math.random() * 1000)}`;
+    createMutation.mutate({ name: instanceName, userId: user.id });
+  };
 
   // Mutação para Gerar QR Code
   const qrMutation = useMutation({
@@ -64,11 +75,6 @@ export default function WhatsAppPage() {
       toast.success("Instância desconectada");
     },
   });
-
-  const handleAutoCreate = () => {
-    const slug = (user?.name.split(' ')[0] || 'adv').toLowerCase() + '_' + Math.floor(Math.random() * 1000);
-    createMutation.mutate(slug);
-  };
 
   if (isLoading) {
     return (
@@ -100,17 +106,10 @@ export default function WhatsAppPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      <motion.div 
-        initial="hidden" 
-        animate="visible" 
-        custom={0} 
-        variants={fadeIn}
-        className="flex items-center justify-between"
-      >
+      <motion.div initial="hidden" animate="visible" custom={0} variants={fadeIn} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageSquare className="h-6 w-6 text-primary" />
-            Gestão WhatsApp Real
+            <MessageSquare className="h-6 w-6 text-primary" /> Gestão WhatsApp Real
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie seu assistente jurídico automático</p>
         </div>
@@ -184,21 +183,19 @@ export default function WhatsAppPage() {
                     <div className="bg-white p-2 rounded-lg mb-3">
                       <img src={qrCode} alt="WhatsApp QR Code" className="h-44 w-44" />
                     </div>
-                    <p className="text-xs text-muted-foreground mb-2 text-center px-4">
-                      Escaneie para conectar.
-                    </p>
+                    <p className="text-xs text-muted-foreground mb-2 text-center px-4">Escaneie para conectar.</p>
                   </div>
                 )}
 
                 <div className="flex gap-2 flex-wrap">
-                  {status !== 'open' && !qrCode && (
+                  {status !== 'open' && (
                     <Button
                       size="sm"
                       className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-1"
                       onClick={() => qrMutation.mutate(name)}
                       disabled={qrMutation.isPending}
                     >
-                      <QrCode className="h-3.5 w-3.5" /> Conectar WhatsApp
+                      <QrCode className="h-3.5 w-3.5" /> {qrCode ? 'Novo QR Code' : 'Conectar WhatsApp'}
                     </Button>
                   )}
                   {status === 'open' && (
@@ -212,16 +209,13 @@ export default function WhatsAppPage() {
                       >
                         <LogOut className="h-3.5 w-3.5" /> Logout
                       </Button>
-                      <Button size="sm" variant="outline" className="rounded-xl gap-1 border-border">
+                      <Button size="sm" variant="outline" className="rounded-xl gap-1 border-border" onClick={() => apiService.restartInstance(name)}>
                         <RotateCcw className="h-3.5 w-3.5" /> Reiniciar
                       </Button>
                     </>
                   )}
                 </div>
-
-                <p className="text-xs text-muted-foreground mt-3">
-                  Sincronizado com Evolution API v2.3.7
-                </p>
+                <p className="text-xs text-muted-foreground mt-3">Sincronizado com Evolution API v2.3.7</p>
               </div>
             </motion.div>
           );

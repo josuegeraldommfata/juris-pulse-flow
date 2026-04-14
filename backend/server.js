@@ -80,24 +80,27 @@ app.get('/api/evolution/instances', async (req, res) => {
 
 app.post('/api/evolution/create', async (req, res) => {
   try {
-    const { instanceName } = req.body;
-    console.log(`🚀 Criando instância: ${instanceName}`);
+    const { instanceName, userId } = req.body;
+    console.log(`🚀 Criando Robô para Usuário ID ${userId}: ${instanceName}`);
     
-    // Payload completo e compatível com Evolution v2.3.7
     const response = await axios.post(`${process.env.EVOLUTION_API_URL}/instance/create`, {
-      instanceName: instanceName,
-      integration: "WHATSAPP-BAILEYS",
+      instanceName, 
+      integration: "WHATSAPP-BAILEYS", 
       qrcode: true
     }, { headers: { 'apikey': process.env.EVOLUTION_API_KEY } });
 
+    // Configura o Webhook injetando o userId na URL para o n8n saber quem é o dono do lead
     if (process.env.EVOLUTION_WEBHOOK_URL) {
+      const webhookUrlWithId = `${process.env.EVOLUTION_WEBHOOK_URL}?userId=${userId}`;
       await axios.post(`${process.env.EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-        url: process.env.EVOLUTION_WEBHOOK_URL, enabled: true, events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
+        url: webhookUrlWithId, 
+        enabled: true, 
+        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
       }, { headers: { 'apikey': process.env.EVOLUTION_API_KEY } }).catch(e => console.error('Erro Webhook:', e.message));
     }
+    
     res.json(response.data);
   } catch (error) { 
-    console.error('❌ Erro Evolution:', error.response?.data || error.message);
     res.status(500).json({ error: error.response?.data || error.message }); 
   }
 });

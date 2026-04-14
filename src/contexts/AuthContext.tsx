@@ -46,22 +46,49 @@ const MOCK_INTEGRADOR: User = {
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(MOCK_INTEGRADOR);
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('juris_user');
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  const login = useCallback(async (_email: string, _password: string) => {
-    setUser(MOCK_INTEGRADOR);
+  const login = useCallback(async (email: string, password: string, role: AppRole) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUser(data);
+        localStorage.setItem('juris_user', JSON.stringify(data));
+      } else {
+        throw new Error(data.error || 'Erro ao fazer login');
+      }
+    } catch (error: any) {
+      throw error;
+    }
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    localStorage.removeItem('juris_user');
   }, []);
 
   const switchRole = useCallback(() => {
-    setUser(prev => prev?.role === 'admin' ? MOCK_INTEGRADOR : MOCK_ADMIN);
+    // Apenas para conveniência em dev, no real o user teria que deslogar
+    setUser(prev => {
+      if (!prev) return null;
+      const newUser = { ...prev, role: prev.role === 'admin' ? 'integrador' : 'admin' } as User;
+      localStorage.setItem('juris_user', JSON.stringify(newUser));
+      return newUser;
+    });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, switchRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login: login as any, logout, switchRole }}>
       {children}
     </AuthContext.Provider>
   );

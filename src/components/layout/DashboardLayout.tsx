@@ -41,18 +41,29 @@ export function DashboardLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <VacationToggle />
-            <NotificationBell />
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 border-r border-border pr-2">
+              <VacationToggle />
+              <NotificationBell />
+            </div>
+            
             <Badge
               variant="outline"
-              className="border-primary/30 text-primary cursor-pointer hover:bg-primary/10 transition-colors"
+              className="px-3 py-1 border-primary/40 text-primary bg-primary/5 cursor-pointer hover:bg-primary/20 transition-all flex items-center gap-2"
               onClick={switchRole}
             >
-              <ArrowRightLeft className="h-3 w-3 mr-1" />
-              {user?.role === 'admin' ? 'Admin' : 'Integrador'}
+              <ArrowRightLeft className="h-3 w-3" />
+              <span className="font-medium tracking-wide uppercase text-[10px]">
+                {user?.role === 'admin' ? 'Admin' : 'Integrador'}
+              </span>
             </Badge>
-            <Button variant="ghost" size="icon" onClick={logout}>
+
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={logout}
+              className="hover:text-destructive transition-colors"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

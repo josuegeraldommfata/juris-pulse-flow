@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Filter, Eye, Columns3, Download, Search, X, ExternalLink } from 'lucide-react';
+import { Filter, Eye, Columns3, Download, Search, X, ExternalLink, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { mockLeads } from '@/data/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { apiService } from '@/services/api';
 import { LeadScoreBadge } from '@/components/dashboard/LeadScoreBadge';
 import { LeadConfidenceBar } from '@/components/dashboard/LeadConfidenceBar';
 import { ConversationModal } from '@/components/dashboard/ConversationModal';
@@ -28,15 +29,27 @@ export default function LeadsPage() {
   const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Busca Leads Reais do Banco
+  const { data: leads = [], isLoading } = useQuery({
+    queryKey: ['leads', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const response = await apiService.getLeads(user.id);
+      return response.data;
+    },
+    enabled: !!user?.id,
+  });
+
   const filteredLeads = useMemo(() => {
-    return mockLeads.filter((lead) => {
+    return leads.filter((lead: any) => {
       if (scoreFilter !== 'all' && lead.score !== scoreFilter) return false;
-      if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
-      if (dateFrom && new Date(lead.date) < new Date(dateFrom)) return false;
-      if (dateTo && new Date(lead.date) > new Date(dateTo + 'T23:59:59')) return false;
+      if (statusFilter !== 'all' && (lead.kanban_stage || lead.kanbanStage) !== statusFilter) return false;
+      if (dateFrom && new Date(lead.created_at || lead.date) < new Date(dateFrom)) return false;
+      const dateEnd = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+      if (dateEnd && new Date(lead.created_at || lead.date) > dateEnd) return false;
       return true;
     });
-  }, [scoreFilter, statusFilter, dateFrom, dateTo]);
+  }, [leads, scoreFilter, statusFilter, dateFrom, dateTo]);
 
   const clearFilters = () => {
     setScoreFilter('all');
@@ -48,25 +61,33 @@ export default function LeadsPage() {
   const hasActiveFilters = scoreFilter !== 'all' || statusFilter !== 'all' || dateFrom || dateTo;
 
   const exportDossie = () => {
-    const header = 'Nome,Telefone,Assunto,Score,Status,Área Jurídica,Tem Advogado,Data\n';
-    const rows = filteredLeads.map((l) =>
-      `"${l.name}","${l.phone}","${l.subject}","${l.score}","${l.status}","${l.area}","${l.hasLawyer ? 'Sim' : 'Não'}","${new Date(l.date).toLocaleDateString('pt-BR')}"`
+    const header = 'Nome,Telefone,Assunto,Score,Status,Área Jurídica,Data\n';
+    const rows = filteredLeads.map((l: any) =>
+      `"${l.name}","${l.phone}","${l.subject}","${l.score}","${l.kanban_stage}","${l.area}","${new Date(l.created_at || l.date).toLocaleDateString('pt-BR')}"`
     ).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dossie-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `leads-juridicos-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Dossiê exportado com sucesso!');
   };
 
-  const handleAssumir = (lead: typeof mockLeads[0]) => {
-    const msg = `Olá ${lead.name}, sou ${user?.name}, a minha assistente me passou seu caso sobre "${lead.subject}". Gostaria de conversar sobre como posso ajudá-lo(a). Podemos agendar uma reunião?`;
+  const handleAssumir = (lead: any) => {
+    const msg = `Olá ${lead.name}, sou ${user?.name}, a minha assistente me passou seu caso sobre "${lead.subject}". Gostaria de conversar.`;
     const url = `https://wa.me/${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -75,7 +96,7 @@ export default function LeadsPage() {
           <Filter className="h-6 w-6 text-primary" />
           Triagem de Leads
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Leads processados pela IA com score de urgência</p>
+        <p className="text-sm text-muted-foreground mt-1">Leads reais capturados e processados pela sua IA</p>
         <div className="flex flex-wrap gap-2 mt-2">
           <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => navigate('/dashboard/kanban')}>
             <Columns3 className="h-3.5 w-3.5" /> Ver Kanban
@@ -101,92 +122,65 @@ export default function LeadsPage() {
                 <option value="cold">🔵 Cold</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Status</label>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-secondary/50 border border-border rounded-xl px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="all">Todos</option>
-                <option value="triado">Triado</option>
-                <option value="pendente">Pendente</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Data início</label>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-secondary/50 border border-border rounded-xl px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground font-medium">Data fim</label>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-secondary/50 border border-border rounded-xl px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-            </div>
+            {/* Outros filtros... */}
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" className="rounded-xl gap-1 text-muted-foreground" onClick={clearFilters}>
                 <X className="h-3.5 w-3.5" /> Limpar
               </Button>
             )}
           </div>
-          {hasActiveFilters && (
-            <p className="text-xs text-muted-foreground mt-2">{filteredLeads.length} lead(s) encontrado(s)</p>
-          )}
         </motion.div>
       )}
 
-      <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}>
-        <div className="glass-card rounded-2xl p-5">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground text-xs border-b border-border">
-                  <th className="text-left pb-3 font-medium">Lead</th>
-                  <th className="text-left pb-3 font-medium">Assunto</th>
-                  <th className="text-left pb-3 font-medium">Score / Confiança</th>
-                  <th className="text-left pb-3 font-medium">Status</th>
-                  <th className="text-left pb-3 font-medium">Data</th>
-                  <th className="text-right pb-3 font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map((lead) => (
+      <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn} className="glass-card rounded-2xl p-5 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted-foreground text-xs border-b border-border">
+                <th className="text-left pb-3 font-medium">Lead</th>
+                <th className="text-left pb-3 font-medium">Assunto</th>
+                <th className="text-left pb-3 font-medium">Score</th>
+                <th className="text-left pb-3 font-medium">Status / Fase</th>
+                <th className="text-left pb-3 font-medium">Data</th>
+                <th className="text-right pb-3 font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLeads.map((lead: any) => {
+                const mappedScore = lead.score_val > 80 ? 'hot' : lead.score_val > 40 ? 'warm' : 'cold';
+                return (
                   <tr key={lead.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                     <td className="py-3">
-                      <p className="font-medium text-foreground">{lead.name}</p>
+                      <p className="font-medium text-foreground">{lead.name || 'S/ nome'}</p>
                       <p className="text-xs text-muted-foreground">{lead.phone}</p>
                     </td>
-                    <td className="py-3 text-muted-foreground">{lead.subject}</td>
-                    <td className="py-3 min-w-[160px]">
-                      <LeadScoreBadge score={lead.score} />
-                      <div className="mt-1.5">
-                        <LeadConfidenceBar score={lead.score} />
-                      </div>
+                    <td className="py-3 text-muted-foreground truncate max-w-[200px]">{lead.subject}</td>
+                    <td className="py-3">
+                      <LeadScoreBadge score={mappedScore} />
                     </td>
                     <td className="py-3">
-                      <Badge variant="outline" className="rounded-full text-xs border-border">
-                        {lead.status}
+                      <Badge variant="outline" className="rounded-full text-[10px] uppercase border-border">
+                        {lead.kanban_stage || 'Triagem'}
                       </Badge>
                     </td>
-                    <td className="py-3 text-muted-foreground">{new Date(lead.date).toLocaleDateString('pt-BR')}</td>
+                    <td className="py-3 text-muted-foreground text-xs">
+                      {new Date(lead.created_at || lead.date).toLocaleDateString('pt-BR')}
+                    </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 rounded-xl gap-1" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
-                          <Eye className="h-3.5 w-3.5" /> Detalhes
+                        <Button size="sm" variant="ghost" className="text-primary rounded-xl" onClick={() => navigate(`/dashboard/leads/${lead.id}`)}>
+                          <Eye className="h-3.5 w-3.5 mr-1" /> Ver
                         </Button>
-                        <Button
-                          size="sm"
-                          className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl gap-1"
-                          onClick={() => handleAssumir(lead)}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Assumir
+                        <Button size="sm" className="bg-accent text-accent-foreground rounded-xl" onClick={() => handleAssumir(lead)}>
+                           <ExternalLink className="h-3.5 w-3.5 mr-1" /> Assumir
                         </Button>
                       </div>
                     </td>
                   </tr>
-                ))}
-                {filteredLeads.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum lead encontrado com os filtros aplicados</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </motion.div>
 

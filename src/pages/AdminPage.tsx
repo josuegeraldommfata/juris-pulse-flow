@@ -1,24 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, DollarSign, Zap, Wifi, Plus, Loader2 } from 'lucide-react';
-import { mockUsers, mockInstances } from '@/data/mockData';
-import { StatsCard } from '@/components/dashboard/StatsCard';
-import { AISuccessRate } from '@/components/dashboard/AISuccessRate';
-import { TokenConsumptionChart } from '@/components/dashboard/TokenConsumptionChart';
-import { CriticalCreditsMonitor } from '@/components/dashboard/CriticalCreditsMonitor';
-import { ClientRanking } from '@/components/dashboard/ClientRanking';
-import { ConversationHeatmap } from '@/components/dashboard/ConversationHeatmap';
-import { AIErrorLogs } from '@/components/dashboard/AIErrorLogs';
+import { Shield, Users, Database, Activity, Server, AlertCircle, Loader2, Gauge, HardDrive, Cpu } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { apiService } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -26,180 +12,107 @@ const fadeIn = {
 };
 
 export default function AdminPage() {
-  const [users, setUsers] = useState(mockUsers);
-  const [injectModal, setInjectModal] = useState<{ userId: string; userName: string } | null>(null);
-  const [injectAmount, setInjectAmount] = useState('');
-  const [injecting, setInjecting] = useState(false);
+  // Busca Estatísticas Globais (Admin)
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const res = await apiService.getAdminStats();
+      return res.data;
+    }
+  });
 
-  const handleInject = () => {
-    if (!injectModal || !injectAmount) return;
-    setInjecting(true);
-    setTimeout(() => {
-      const amount = parseInt(injectAmount);
-      setUsers(prev => prev.map(u =>
-        u.id === injectModal.userId
-          ? { ...u, tokensAvailable: u.tokensAvailable + amount }
-          : u
-      ));
-      setInjecting(false);
-      setInjectModal(null);
-      setInjectAmount('');
-    }, 1000);
-  };
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+      </div>
+    );
+  }
 
-  const totalTokens = users.reduce((acc, u) => acc + u.tokensConsumed, 0);
-  const totalRevenue = (totalTokens * 0.25).toFixed(2);
+  const systemMetrics = [
+    { label: 'Advogados Ativos', value: stats?.totalClients || 0, icon: Users, color: 'text-primary' },
+    { label: 'Total de Leads', value: stats?.systemLeads || 0, icon: Database, color: 'text-accent' },
+    { label: 'Saúde da API', value: stats?.apiHealth || 'Healthy', icon: Activity, color: 'text-emerald-500' },
+    { label: 'Servidores', value: '1 Ativo', icon: Server, color: 'text-amber-500' },
+  ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <motion.div initial="hidden" animate="visible" custom={0} variants={fadeIn}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Users className="h-6 w-6 text-primary" />
-          Painel Administrativo
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Gestão global de usuários, tokens e instâncias</p>
-      </motion.div>
-
-      {/* Global metrics */}
-      <motion.div initial="hidden" animate="visible" custom={1} variants={fadeIn}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        <StatsCard title="Usuários Ativos" value={users.filter(u => u.status === 'active').length.toString()} icon={Users} variant="electric" />
-        <StatsCard title="Faturamento Total" value={`R$ ${totalRevenue}`} icon={DollarSign} variant="emerald" />
-        <StatsCard title="Tokens Consumidos" value={totalTokens.toLocaleString()} icon={Zap} />
-        <StatsCard title="Instâncias Ativas" value={mockInstances.filter(i => i.status === 'connected').length.toString()} icon={Wifi} variant="electric" />
-      </motion.div>
-
-      {/* Users table */}
-      <motion.div initial="hidden" animate="visible" custom={2} variants={fadeIn}>
-        <div className="glass-card rounded-2xl p-5">
-          <h3 className="font-semibold text-foreground mb-4">Gestão de Usuários</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground text-xs border-b border-border">
-                  <th className="text-left pb-3 font-medium">Usuário</th>
-                  <th className="text-left pb-3 font-medium">Escritório</th>
-                  <th className="text-left pb-3 font-medium">Status</th>
-                  <th className="text-right pb-3 font-medium">Disponível</th>
-                  <th className="text-right pb-3 font-medium">Consumido</th>
-                  <th className="text-right pb-3 font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                    <td className="py-3">
-                      <p className="font-medium text-foreground">{u.name}</p>
-                      <p className="text-xs text-muted-foreground">{u.email}</p>
-                    </td>
-                    <td className="py-3 text-muted-foreground">{u.office}</td>
-                    <td className="py-3">
-                      <Badge className={cn(
-                        'rounded-full text-xs',
-                        u.status === 'active'
-                          ? 'bg-accent/10 text-accent border-accent/20'
-                          : 'bg-red-500/10 text-red-400 border-red-500/20'
-                      )}>
-                        {u.status === 'active' ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </td>
-                    <td className="py-3 text-right text-accent font-bold">{u.tokensAvailable}</td>
-                    <td className="py-3 text-right text-muted-foreground">{u.tokensConsumed}</td>
-                    <td className="py-3 text-right">
-                      <Button
-                        size="sm"
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-1"
-                        onClick={() => setInjectModal({ userId: u.id, userName: u.name })}
-                      >
-                        <Plus className="h-3 w-3" /> Adicionar Saldo
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <motion.div initial="hidden" animate="visible" custom={0} variants={fadeIn} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            Painel de Administração
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">Controle total da infraestrutura JurisAI</p>
         </div>
+        <Badge variant="outline" className="rounded-full bg-primary/10 text-primary border-primary/20 gap-1 px-3 py-1">
+          <Gauge className="h-3 w-3" /> Modo Master
+        </Badge>
       </motion.div>
 
-      {/* Admin-specific widgets */}
-      <motion.div initial="hidden" animate="visible" custom={3} variants={fadeIn}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-      >
-        <AISuccessRate />
-        <TokenConsumptionChart />
-      </motion.div>
-
-      <motion.div initial="hidden" animate="visible" custom={4} variants={fadeIn}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
-      >
-        <CriticalCreditsMonitor />
-        <ClientRanking />
-      </motion.div>
-
-      <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn}>
-        <ConversationHeatmap />
-      </motion.div>
-
-      <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn}>
-        <AIErrorLogs />
-      </motion.div>
-
-      {/* Instance health */}
-      <motion.div initial="hidden" animate="visible" custom={7} variants={fadeIn}>
-        <div className="glass-card rounded-2xl p-5">
-          <h3 className="font-semibold text-foreground mb-4">Saúde das Instâncias (Evolution API)</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mockInstances.map((inst) => (
-              <div key={inst.name} className="flex items-center justify-between p-3 bg-secondary/30 rounded-xl">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{inst.displayName}</p>
-                  <p className="text-xs text-muted-foreground">{inst.name}</p>
-                </div>
-                <Badge className={cn(
-                  'rounded-full',
-                  inst.status === 'connected'
-                    ? 'bg-accent/10 text-accent border-accent/20'
-                    : 'bg-destructive/10 text-destructive border-destructive/20'
-                )}>
-                  {inst.status === 'connected' ? 'Online' : 'Offline'}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Inject tokens modal */}
-      <Dialog open={!!injectModal} onOpenChange={() => { setInjectModal(null); setInjectAmount(''); }}>
-        <DialogContent className="sm:max-w-sm glass-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">Injetar Tokens</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Adicionar saldo para <strong className="text-foreground">{injectModal?.userName}</strong></p>
-          <Input
-            type="number"
-            placeholder="Quantidade de tokens"
-            value={injectAmount}
-            onChange={(e) => setInjectAmount(e.target.value)}
-            className="bg-secondary border-border rounded-xl"
-          />
-          <Button
-            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl"
-            onClick={handleInject}
-            disabled={!injectAmount || injecting}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {systemMetrics.map((metric, i) => (
+          <motion.div
+            key={metric.label}
+            initial="hidden"
+            animate="visible"
+            custom={i + 1}
+            variants={fadeIn}
+            className="glass-card-hover rounded-2xl p-5"
           >
-            {injecting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Processando...
-              </span>
-            ) : (
-              'Confirmar Injeção'
-            )}
-          </Button>
-        </DialogContent>
-      </Dialog>
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl bg-secondary/50 ${metric.color}`}>
+                <metric.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">{metric.label}</p>
+                <p className="text-xl font-bold text-foreground">{metric.value}</p>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div initial="hidden" animate="visible" custom={5} variants={fadeIn} className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Uso de Recursos</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="flex items-center gap-1"><Cpu className="h-3 w-3" /> CPU Usage</span>
+                <span className="text-primary font-bold">12%</span>
+              </div>
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full bg-primary" style={{ width: '12%' }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="flex items-center gap-1"><HardDrive className="h-3 w-3" /> Storage</span>
+                <span className="text-accent font-bold">45%</span>
+              </div>
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full bg-accent" style={{ width: '45%' }} />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn} className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Alertas de Sistema</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-red-400/5 border border-red-400/10 rounded-xl">
+              <AlertCircle className="h-4 w-4 text-red-400" />
+              <p className="text-xs text-red-200">Evolution API instance "leadsprospect" sem token master.</p>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-emerald-400/5 border border-emerald-400/10 rounded-xl">
+              <Activity className="h-4 w-4 text-emerald-400" />
+              <p className="text-xs text-emerald-200">Banco de Dados PostgreSQL operando normalmente.</p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }

@@ -8,19 +8,34 @@ import {
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
-const mockNotifications = [
-  { id: '1', text: 'IA qualificou lead "João Mendes" como Urgente', time: '2 min', read: false },
-  { id: '2', text: 'Instância WhatsApp Real desconectou', time: '15 min', read: false },
-  { id: '3', text: 'Novo lead processado: Maria Oliveira', time: '1h', read: true },
-  { id: '4', text: 'Saldo de tokens abaixo de 100', time: '3h', read: true },
-];
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiService } from '@/services/api';
+import { Loader2, BellOff } from 'lucide-react';
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const unread = notifications.filter(n => !n.read).length;
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Busca Notificações Reais
+  const { data: notifications = [], isLoading } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await apiService.getNotifications(user.id);
+      return res.data;
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30000,
+  });
+
+  const unread = notifications.filter((n: any) => !n.read).length;
 
   const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // No futuro adicionaremos a rota PATCH /api/notifications/read-all
+    queryClient.setQueryData(['notifications', user?.id], (prev: any) => 
+      prev.map((n: any) => ({ ...n, read: true }))
+    );
   };
 
   return (
@@ -45,7 +60,18 @@ export function NotificationBell() {
           )}
         </div>
         <div className="max-h-64 overflow-y-auto">
-          {notifications.map((n) => (
+          {isLoading && (
+             <div className="flex items-center justify-center py-8">
+               <Loader2 className="h-6 w-6 text-primary animate-spin" />
+             </div>
+          )}
+          {notifications.length === 0 && !isLoading && (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <BellOff className="h-8 w-8 mb-2 opacity-20" />
+              <p className="text-xs">Nenhum alerta ainda</p>
+            </div>
+          )}
+          {notifications.map((n: any) => (
             <div
               key={n.id}
               className={cn(
@@ -56,8 +82,11 @@ export function NotificationBell() {
               <div className="flex items-start gap-2">
                 {!n.read && <span className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />}
                 <div>
-                  <p className="text-xs text-foreground">{n.text}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{n.time} atrás</p>
+                  <p className="text-xs font-semibold text-foreground">{n.title}</p>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">{n.message}</p>
+                  <p className="text-[9px] text-muted-foreground/60 mt-1">
+                    {new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://n8n.example.com/webhook',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api',
   timeout: 30000,
 });
 
@@ -26,18 +26,27 @@ api.interceptors.response.use(
 
 export const apiService = {
   // WhatsApp / Evolution API
-  getInstances: () => api.get('/evolution/instances'),
-  generateQRCode: (instanceName: string) => api.post('/evolution/qrcode', { instanceName }),
-  disconnectInstance: (instanceName: string) => api.post('/evolution/disconnect', { instanceName }),
-  restartInstance: (instanceName: string) => api.post('/evolution/restart', { instanceName }),
+  getInstances: () => api.get('evolution/instances'),
+  generateQRCode: (instanceName: string) => api.post('evolution/qrcode', { instanceName }),
+  createInstance: (instanceName: string) => api.post('evolution/create', { instanceName }),
+  disconnectInstance: (instanceName: string) => api.post('evolution/disconnect', { instanceName }),
+  restartInstance: (instanceName: string) => api.post('evolution/restart', { instanceName }),
+
+  // Leads & Kanban
+  getLeads: (userId: number) => api.get(`leads?userId=${userId}`),
+  updateLeadStage: (id: number, stage: string) => api.patch(`leads/${id}`, { kanban_stage: stage }),
+
+  // Stats
+  getIntegratorStats: (userId: number) => api.get(`stats/integrator?userId=${userId}`),
+  getAdminStats: () => api.get('stats/admin'),
+
+  // Notificações
+  getNotifications: (userId: number) => api.get(`notifications?userId=${userId}`),
 
   // Leads & Triage
-  getLeads: () => api.get('/leads'),
-  getLeadConversation: (leadId: string) => api.get(`/leads/${leadId}/conversation`),
+  getLeadConversation: (leadId: string) => api.get(`leads/${leadId}/conversation`),
 
   // Tokens & Wallet
-  getWallet: () => api.get('/wallet'),
-  getConsumptionHistory: () => api.get('/wallet/history'),
   purchaseTokens: (planId: string) => api.post('/wallet/purchase', { planId }),
 
   // Admin

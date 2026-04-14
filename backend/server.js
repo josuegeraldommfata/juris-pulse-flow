@@ -81,8 +81,13 @@ app.get('/api/evolution/instances', async (req, res) => {
 app.post('/api/evolution/create', async (req, res) => {
   try {
     const { instanceName } = req.body;
+    console.log(`🚀 Criando instância: ${instanceName}`);
+    
+    // Payload completo e compatível com Evolution v2.3.7
     const response = await axios.post(`${process.env.EVOLUTION_API_URL}/instance/create`, {
-      instanceName, token: Math.random().toString(36).substring(7), qrcode: true
+      instanceName: instanceName,
+      integration: "WHATSAPP-BAILEYS",
+      qrcode: true
     }, { headers: { 'apikey': process.env.EVOLUTION_API_KEY } });
 
     if (process.env.EVOLUTION_WEBHOOK_URL) {
@@ -97,6 +102,36 @@ app.post('/api/evolution/create', async (req, res) => {
   }
 });
 
+app.post('/api/evolution/qrcode', async (req, res) => {
+  try {
+    const { instanceName } = req.body;
+    const response = await axios.get(`${process.env.EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
+      headers: { 'apikey': process.env.EVOLUTION_API_KEY }
+    });
+    res.json(response.data);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/evolution/disconnect', async (req, res) => {
+  try {
+    const { instanceName } = req.body;
+    await axios.delete(`${process.env.EVOLUTION_API_URL}/instance/logout/${instanceName}`, {
+      headers: { 'apikey': process.env.EVOLUTION_API_KEY }
+    });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/evolution/restart', async (req, res) => {
+  try {
+    const { instanceName } = req.body;
+    await axios.post(`${process.env.EVOLUTION_API_URL}/instance/restart/${instanceName}`, {}, {
+      headers: { 'apikey': process.env.EVOLUTION_API_KEY }
+    });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -106,6 +141,12 @@ app.post('/api/login', async (req, res) => {
       res.json({ id: user.id, name: user.nome, email: user.email, role: user.role, company: user.company });
     } else { res.status(401).json({ error: 'Credenciais inválidas' }); }
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Manipulador de erros global para o server não cair
+app.use((err, req, res, next) => {
+  console.error('💥 Erro Crítico:', err.stack);
+  res.status(500).json({ error: 'Erro interno no servidor' });
 });
 
 const PORT = 3001;

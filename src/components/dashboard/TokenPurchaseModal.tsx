@@ -1,99 +1,123 @@
 import { useState } from 'react';
-import { Check, CreditCard, Zap } from 'lucide-react';
-import { tokenPlans } from '@/data/mockData';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { CheckoutTransparente } from '@/components/payment/CheckoutTransparente';
+import { Coins, Zap, Crown } from 'lucide-react';
 
-interface Props {
+interface TokenPurchaseModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function TokenPurchaseModal({ open, onClose }: Props) {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>('pro');
-  const [processing, setProcessing] = useState(false);
+const PACOTES = [
+  {
+    id: 1,
+    nome: '100 Tokens',
+    tokens: 100,
+    valor: 29.90,
+    economia: '',
+    icone: Coins,
+    destaque: false
+  },
+  {
+    id: 2,
+    nome: '500 Tokens',
+    tokens: 500,
+    valor: 129.90,
+    economia: '13% OFF',
+    icone: Zap,
+    destaque: true
+  },
+  {
+    id: 3,
+    nome: '1000 Tokens',
+    tokens: 1000,
+    valor: 229.90,
+    economia: '23% OFF',
+    icone: Crown,
+    destaque: false
+  }
+];
 
-  const handlePurchase = () => {
-    if (!selectedPlan) return;
-    setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      onClose();
-    }, 2000);
+export function TokenPurchaseModal({ open, onClose }: TokenPurchaseModalProps) {
+  const [pacoteSelecionado, setPacoteSelecionado] = useState<typeof PACOTES[0] | null>(null);
+
+  const handleSuccess = () => {
+    // Recarregar a página para atualizar o saldo
+    window.location.reload();
+  };
+
+  const handleVoltar = () => {
+    setPacoteSelecionado(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg glass-card border-border">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-foreground">
-            <CreditCard className="h-5 w-5 text-primary" />
-            Comprar Créditos
+          <DialogTitle className="text-2xl">
+            {pacoteSelecionado ? 'Checkout Cakto' : 'Comprar Tokens'}
           </DialogTitle>
+          <DialogDescription>
+            {pacoteSelecionado 
+              ? `Complete seu pagamento de ${pacoteSelecionado.tokens} tokens`
+              : 'Escolha o pacote ideal para você'
+            }
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 mt-4">
-          {tokenPlans.map((plan) => (
-            <button
-              key={plan.id}
-              onClick={() => setSelectedPlan(plan.id)}
-              className={cn(
-                'w-full p-4 rounded-xl border transition-all duration-200 text-left relative',
-                selectedPlan === plan.id
-                  ? 'border-primary bg-primary/5 glow-electric'
-                  : 'border-border hover:border-primary/30 bg-secondary/30'
-              )}
-            >
-              {plan.popular && (
-                <Badge className="absolute -top-2 right-3 bg-primary text-primary-foreground text-[10px]">
-                  Popular
-                </Badge>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    'h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors',
-                    selectedPlan === plan.id ? 'border-primary bg-primary' : 'border-muted-foreground'
-                  )}>
-                    {selectedPlan === plan.id && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{plan.name}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-accent" />
-                      {plan.tokens.toLocaleString()} tokens
-                    </p>
+        {!pacoteSelecionado ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+            {PACOTES.map((pacote) => {
+              const Icon = pacote.icone;
+              return (
+                <div
+                  key={pacote.id}
+                  className={`relative glass-card rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 ${
+                    pacote.destaque ? 'ring-2 ring-accent glow-emerald' : ''
+                  }`}
+                  onClick={() => setPacoteSelecionado(pacote)}
+                >
+                  {pacote.economia && (
+                    <div className="absolute -top-3 -right-3 bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full">
+                      {pacote.economia}
+                    </div>
+                  )}
+
+                  <div className="text-center space-y-4">
+                    <div className="h-16 w-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                      <Icon className="h-8 w-8 text-primary" />
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-lg text-foreground">{pacote.nome}</h3>
+                      <p className="text-2xl font-bold text-accent mt-2">
+                        R$ {pacote.valor.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        R$ {(pacote.valor / pacote.tokens).toFixed(2)} por token
+                      </p>
+                    </div>
+
+                    <Button
+                      className="w-full bg-primary hover:bg-primary/90 rounded-xl"
+                      onClick={() => setPacoteSelecionado(pacote)}
+                    >
+                      Comprar Agora
+                    </Button>
                   </div>
                 </div>
-                <p className="text-lg font-bold text-gradient-electric">
-                  R$ {plan.price.toFixed(2).replace('.', ',')}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <Button
-          className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-12 font-semibold"
-          disabled={!selectedPlan || processing}
-          onClick={handlePurchase}
-        >
-          {processing ? (
-            <span className="flex items-center gap-2">
-              <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              Processando via Mercado Pago...
-            </span>
-          ) : (
-            'Finalizar Compra'
-          )}
-        </Button>
+              );
+            })}
+          </div>
+        ) : (
+          <CheckoutTransparente
+            valor={pacoteSelecionado.valor}
+            quantidadeTokens={pacoteSelecionado.tokens}
+            onSuccess={handleSuccess}
+            onCancel={handleVoltar}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

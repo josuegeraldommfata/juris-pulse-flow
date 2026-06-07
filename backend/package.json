@@ -1,7 +1,7 @@
 {
   "name": "juris-pulse-backend",
-  "version": "1.0.0",
-  "description": "Scraper e API para Juris Pulse Flow",
+  "version": "2.0.0",
+  "description": "Backend completo com IA, Scraper e API para Juris Pulse Flow - SaaS Jurídico",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,6 +12,7 @@
     "playwright": "^1.43.1",
     "pg": "^8.11.5",
     "dotenv": "^16.4.5",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "axios": "^1.6.0"
   }
 }

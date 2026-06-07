@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+
 import { Shield, Users, Database, Activity, Server, AlertCircle, Loader2, Gauge, HardDrive, Cpu } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
 import { Button } from '@/components/ui/button';
@@ -11,7 +13,21 @@ const fadeIn = {
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4 } }),
 };
 
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function AdminPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Bloqueia integrador de acessar Administração
+  if (user?.role !== 'admin') {
+    toast.error('Acesso negado: apenas usuários Master Admin podem acessar Administração.');
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
+
   // Busca Estatísticas Globais (Admin)
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin-stats'],
@@ -20,6 +36,7 @@ export default function AdminPage() {
       return res.data;
     }
   });
+
 
   if (isLoading) {
     return (
@@ -44,7 +61,7 @@ export default function AdminPage() {
             <Shield className="h-6 w-6 text-primary" />
             Painel de Administração
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Controle total da infraestrutura JurisAI</p>
+          <p className="text-sm text-muted-foreground mt-1">Controle total da infraestrutura Advocatus</p>
         </div>
         <Badge variant="outline" className="rounded-full bg-primary/10 text-primary border-primary/20 gap-1 px-3 py-1">
           <Gauge className="h-3 w-3" /> Modo Master

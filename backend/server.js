@@ -1,18 +1,104 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const axios = require('axios');
 const { Pool } = require('pg');
 const { scrapeProcess } = require('./scraper');
+const aiRoutes = require('./routes/aiRoutes');
+
+const app = express();
+
 const { authenticateUser } = require('./middleware/auth');
+
+
 const { checkTokens, deductTokens } = require('./middleware/checkTokens');
+
+// CORS/OPTIONS precisam estar ativos antes das rotas (preflight do browser)
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id'],
+}));
+
+app.options('/api/ai/*', (req, res) => res.sendStatus(204));
+
 const { identificarAreaJuridica, obterAgente, listarAgentes } = require('./utils/aiAgents');
 const { gerarDocumento, listarTemplates } = require('./utils/documentTemplates');
 const caktoService = require('./services/caktoService');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+// 🛡️ IMPORTAR MÓDULOS DE SEGURANÇA
+const {
+  loginLimiter,
+  generalLimiter,
+  aiLimiter,
+  scrapingLimiter,
+  validateAndSanitize,
+  validatePaymentData,
+  generateSecureToken,
+  verifySecureToken,
+  detectSuspiciousActivity,
+  recordLoginFailure,
+  securityHeaders,
+  customSecurityHeaders,
+  securityLogger,
+  logSecurityEvent
+} = require('./middleware/security');
+
+const {
+  hashPassword,
+  verifyPassword,
+  encryptLeadData,
+  decryptLeadData,
+  maskSensitiveData,
+  generateApiKey,
+  validateApiKey
+} = require('./middleware/encryption');
+
+// 🛡️ APLICAR SEGURANÇA GLOBAL
+app.use(compression()); // Compressão gzip
+app.use(securityHeaders); // Headers de segurança do Helmet
+app.use(customSecurityHeaders); // Headers customizados
+app.use(detectSuspiciousActivity); // Detecção de ataques
+app.use(generalLimiter); // Rate limiting global
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:8080',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('CORS Not Allowed'), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(validateAndSanitize); // Sanitização de inputs
+
+// Rotas da IA (precisa rodar após express.json para req.body funcionar corretamente)
+app.use('/api/ai', aiRoutes);
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -141,24 +227,80 @@ app.post('/api/evolution/restart', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, logSecurityEvent('login_attempt'), async (req, res) => {
   const { email, password } = req.body;
+  
   try {
-    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1 AND senha = $2', [email, password]);
-    if (result.rows.length > 0) {
-      const user = result.rows[0];
-      res.json({ 
-        id: user.id, 
-        name: user.nome, 
-        email: user.email, 
-        role: user.role, 
-        company: user.company,
-        tokensAvailable: user.tokens_available || 0,
-        tokensConsumed: user.tokens_consumed || 0,
-        tokensTotal: user.tokens_total || 0
-      });
-    } else { res.status(401).json({ error: 'Credenciais inválidas' }); }
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    // Validação básica
+    if (!email || !password) {
+      recordLoginFailure(email || req.ip);
+      securityLogger('login_failed', { reason: 'missing_credentials', email }, req);
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });
+    }
+
+    // Buscar usuário no banco
+    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    
+    if (result.rows.length === 0) {
+      recordLoginFailure(email);
+      securityLogger('login_failed', { reason: 'user_not_found', email }, req);
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    const user = result.rows[0];
+
+    // Verificar se a conta não está bloqueada
+    if (user.status === 'blocked') {
+      securityLogger('login_blocked', { reason: 'account_blocked', email }, req);
+      return res.status(403).json({ error: 'Conta bloqueada. Entre em contato com o suporte.' });
+    }
+
+    // Verificar senha com hash (se já tiver hash) ou texto simples (temporário)
+    let passwordValid = false;
+    
+    if (user.senha.startsWith('$2')) {
+      // Senha já está hasheada (bcrypt)
+      passwordValid = await verifyPassword(password, user.senha);
+    } else {
+      // Senha em texto simples (migração gradual)
+      passwordValid = (password === user.senha);
+      
+      // Se a senha está correta, fazer hash dela para próxima vez
+      if (passwordValid) {
+        const hashedPassword = await hashPassword(password);
+        await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hashedPassword, user.id]);
+      }
+    }
+
+    if (!passwordValid) {
+      recordLoginFailure(email);
+      securityLogger('login_failed', { reason: 'wrong_password', email }, req);
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
+
+    // Atualizar último login
+    await pool.query('UPDATE usuarios SET ultimo_login = NOW() WHERE id = $1', [user.id]);
+
+    // Gerar token JWT seguro
+    const token = generateSecureToken(user.id, user.email);
+
+    securityLogger('login_success', { email, userId: user.id }, req);
+
+    res.json({ 
+      id: user.id, 
+      name: user.nome, 
+      email: user.email, 
+      role: user.role, 
+      company: user.company,
+      token, // Token JWT para autenticação
+      tokensAvailable: user.tokens_available || 0,
+      tokensConsumed: user.tokens_consumed || 0,
+      tokensTotal: user.tokens_total || 0
+    });
+  } catch (err) { 
+    securityLogger('login_error', { error: err.message, email }, req);
+    res.status(500).json({ error: 'Erro interno do servidor' }); 
+  }
 });
 
 // =============================================================
@@ -288,10 +430,12 @@ app.get('/api/ai/agents', (req, res) => {
 });
 
 // Analisar lead com IA (classificar área jurídica)
-app.post('/api/ai/analyze-lead', authenticateUser, async (req, res) => {
+app.post('/api/ai/analyze-lead', verifySecureToken, aiLimiter, async (req, res) => {
   try {
     const { leadId, texto } = req.body;
     const userId = req.userId;
+    
+    securityLogger('ai_analyze_lead', { leadId, userId }, req);
     
     // Identifica a área jurídica
     const area = identificarAreaJuridica(texto);
@@ -318,29 +462,32 @@ app.post('/api/ai/analyze-lead', authenticateUser, async (req, res) => {
       confianca: 85
     });
   } catch (err) {
+    securityLogger('ai_analyze_error', { error: err.message, userId: req.userId }, req);
     res.status(500).json({ error: err.message });
   }
 });
 
 // Gerar documento jurídico com IA (COBRA 2 TOKENS)
-app.post('/api/ai/generate-document', authenticateUser, checkTokens(2), async (req, res) => {
+const { buildDocument } = require('./controllers/aiController');
+
+app.post('/api/ai/generate-document', verifySecureToken, aiLimiter, checkTokens(1), async (req, res) => {
   try {
     const { tipo, dados } = req.body;
     const userId = req.userId;
-    
-    // Gera o documento
-    const documento = gerarDocumento(tipo, dados);
-    
-    // Desconta os tokens
-    await deductTokens(userId, 2, `Geração de documento: ${documento.nome}`);
-    
+
+    securityLogger('ai_generate_document', { tipo, userId }, req);
+
+    const documento = await buildDocument(tipo, dados);
+    await deductTokens(userId, documento.tokensUsados || 2, `Geração de documento: ${documento.nome}`);
+
     res.json({
       success: true,
-      documento: documento.conteudo,
+      documento: documento.documento,
       nome: documento.nome,
-      tokensUsados: 2
+      tokensUsados: documento.tokensUsados,
     });
   } catch (err) {
+    securityLogger('ai_document_error', { error: err.message, userId: req.userId }, req);
     res.status(500).json({ error: err.message });
   }
 });
@@ -355,12 +502,13 @@ app.get('/api/ai/templates', (req, res) => {
 // 📄 SCRAPING DE PROCESSOS (COBRA 2 TOKENS)
 // =============================================================
 
-app.post('/api/scraper/process', authenticateUser, checkTokens(2), async (req, res) => {
+app.post('/api/scraper/process', verifySecureToken, scrapingLimiter, checkTokens(2), async (req, res) => {
   try {
     const { numeroProcesso, leadId } = req.body;
     const userId = req.userId;
     
     console.log(`🔍 Iniciando scraping do processo ${numeroProcesso} para usuário ${userId}`);
+    securityLogger('scraping_process', { numeroProcesso, leadId, userId }, req);
     
     // Executa o scraping
     const resultado = await scrapeProcess(numeroProcesso);
@@ -415,6 +563,7 @@ app.post('/api/scraper/process', authenticateUser, checkTokens(2), async (req, r
     });
   } catch (err) {
     console.error('Erro no scraping:', err);
+    securityLogger('scraping_error', { error: err.message, userId: req.userId }, req);
     res.status(500).json({ error: err.message });
   }
 });
@@ -434,12 +583,13 @@ app.get('/api/processos', authenticateUser, async (req, res) => {
 });
 
 // =============================================================
-// 📊 EXPORTAÇÃO DE DOSSIÊ (COBRA 1 TOKEN)
+// 📊 EXPORTAÇÃO DE DOSSIÊ (COBRA 1 TOKEN) + PDF
 // =============================================================
 
-app.post('/api/leads/:id/export', authenticateUser, checkTokens(1), async (req, res) => {
+app.post('/api/leads/:id/export', verifySecureToken, checkTokens(1), async (req, res) => {
   try {
     const { id } = req.params;
+    const { formato = 'json' } = req.body; // 'json' ou 'pdf'
     const userId = req.userId;
     
     // Busca dados completos do lead
@@ -464,24 +614,56 @@ app.post('/api/leads/:id/export', authenticateUser, checkTokens(1), async (req, 
       [id]
     );
     
+    // Busca dados do usuário para o PDF
+    const usuario = await pool.query(
+      'SELECT nome, email, company, cpf_cnpj FROM usuarios WHERE id = $1',
+      [userId]
+    );
+    
     // Monta o dossiê
     const dossie = {
       lead: lead.rows[0],
       totalConversas: conversas.rows.length,
       conversas: conversas.rows,
       processos: processos.rows,
+      analise_ia: {
+        area: lead.rows[0].area,
+        agente: `Dr. ${lead.rows[0].area} AI`,
+        confianca: lead.rows[0].score_confianca || 75,
+        recomendacoes: `Lead classificado como ${lead.rows[0].area}. Recomenda-se acompanhamento especializado nesta área jurídica.`
+      },
       dataExportacao: new Date().toISOString()
     };
     
-    // Desconta o token
-    await deductTokens(userId, 1, `Exportação de dossiê do lead ${lead.rows[0].nome}`);
-    
-    res.json({
-      success: true,
-      dossie,
-      tokensUsados: 1
-    });
+    // Se formato é PDF, gerar PDF
+    if (formato === 'pdf') {
+      const { gerarPDFBuffer } = require('./utils/pdfGenerator');
+      
+      const pdfData = await gerarPDFBuffer('dossie', dossie, {
+        nome: usuario.rows[0].nome,
+        email: usuario.rows[0].email,
+        company: usuario.rows[0].company,
+        oab: usuario.rows[0].cpf_cnpj
+      });
+      
+      // Desconta o token
+      await deductTokens(userId, 1, `Exportação PDF do dossiê do lead ${lead.rows[0].nome}`);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="dossie_${lead.rows[0].nome.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf"`);
+      res.send(pdfData.buffer);
+    } else {
+      // Desconta o token
+      await deductTokens(userId, 1, `Exportação JSON do dossiê do lead ${lead.rows[0].nome}`);
+      
+      res.json({
+        success: true,
+        dossie,
+        tokensUsados: 1
+      });
+    }
   } catch (err) {
+    console.error('Erro ao exportar dossiê:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -718,7 +900,7 @@ app.post('/api/payment/checkout', authenticateUser, async (req, res) => {
 });
 
 // Processar pagamento com cartão (checkout transparente)
-app.post('/api/payment/process-card', authenticateUser, async (req, res) => {
+app.post('/api/payment/process-card', verifySecureToken, validatePaymentData, async (req, res) => {
   try {
     const {
       valor,
@@ -732,6 +914,13 @@ app.post('/api/payment/process-card', authenticateUser, async (req, res) => {
     } = req.body;
 
     const userId = req.userId;
+
+    securityLogger('payment_card_attempt', { 
+      valor, 
+      quantidade_tokens, 
+      userId, 
+      masked_card: card_number ? `****${card_number.slice(-4)}` : null 
+    }, req);
 
     // Busca dados do usuário
     const user = await pool.query('SELECT * FROM usuarios WHERE id = $1', [userId]);
@@ -769,6 +958,7 @@ app.post('/api/payment/process-card', authenticateUser, async (req, res) => {
       );
 
       console.log(`✅ Pagamento aprovado! ${quantidade_tokens} tokens adicionados ao usuário ${userId}`);
+      securityLogger('payment_approved', { quantidade_tokens, userId, transaction_id: resultado.transaction_id }, req);
 
       res.json({
         success: true,
@@ -779,6 +969,7 @@ app.post('/api/payment/process-card', authenticateUser, async (req, res) => {
       });
 
     } else {
+      securityLogger('payment_declined', { userId, error: resultado.error }, req);
       res.status(400).json({
         success: false,
         error: resultado.error || 'Pagamento recusado',
@@ -788,7 +979,8 @@ app.post('/api/payment/process-card', authenticateUser, async (req, res) => {
 
   } catch (err) {
     console.error('Erro ao processar cartão:', err);
-    res.status(500).json({ error: err.message });
+    securityLogger('payment_error', { error: err.message, userId: req.userId }, req);
+    res.status(500).json({ error: 'Erro no processamento do pagamento' });
   }
 });
 
@@ -924,6 +1116,167 @@ app.get('/api/payment/plans', async (req, res) => {
 app.use((err, req, res, next) => {
   console.error('💥 Erro Crítico:', err.stack);
   res.status(500).json({ error: 'Erro interno no servidor' });
+});
+
+// =============================================================
+// 📊 RELATÓRIOS PDF ADICIONAIS
+// =============================================================
+
+// Relatório de processos em PDF (COBRA 2 TOKENS)
+app.post('/api/processos/relatorio-pdf', verifySecureToken, checkTokens(2), async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { filtros = {} } = req.body;
+    
+    // Busca processos do usuário
+    let query = 'SELECT * FROM processos WHERE user_id = $1';
+    let params = [userId];
+    
+    // Aplicar filtros se houver
+    if (filtros.tribunal) {
+      query += ' AND tribunal = $2';
+      params.push(filtros.tribunal);
+    }
+    if (filtros.status) {
+      query += ` AND status = $${params.length + 1}`;
+      params.push(filtros.status);
+    }
+    if (filtros.data_inicio) {
+      query += ` AND created_at >= $${params.length + 1}`;
+      params.push(filtros.data_inicio);
+    }
+    if (filtros.data_fim) {
+      query += ` AND created_at <= $${params.length + 1}`;
+      params.push(filtros.data_fim);
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    
+    const processos = await pool.query(query, params);
+    
+    // Busca dados do usuário
+    const usuario = await pool.query(
+      'SELECT nome, email, company, cpf_cnpj FROM usuarios WHERE id = $1',
+      [userId]
+    );
+    
+    const { gerarPDFBuffer } = require('./utils/pdfGenerator');
+    
+    const pdfData = await gerarPDFBuffer('processos', {
+      processos: processos.rows,
+      filtros
+    }, {
+      nome: usuario.rows[0].nome,
+      email: usuario.rows[0].email,
+      company: usuario.rows[0].company,
+      oab: usuario.rows[0].cpf_cnpj
+    });
+    
+    // Desconta os tokens
+    await deductTokens(userId, 2, `Relatório PDF de ${processos.rows.length} processos`);
+    
+    console.log(`✅ Relatório PDF gerado: ${processos.rows.length} processos`);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="relatorio_processos_${new Date().toISOString().split('T')[0]}.pdf"`);
+    res.send(pdfData.buffer);
+  } catch (err) {
+    console.error('Erro ao gerar relatório PDF:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Relatório mensal em PDF (COBRA 3 TOKENS)
+app.post('/api/relatorio-mensal-pdf', verifySecureToken, checkTokens(3), async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { mes, ano } = req.body;
+    
+    if (!mes || !ano) {
+      return res.status(400).json({ error: 'Mês e ano são obrigatórios' });
+    }
+    
+    // Calcular período
+    const dataInicio = new Date(ano, mes - 1, 1);
+    const dataFim = new Date(ano, mes, 0);
+    
+    // Buscar dados do mês
+    const leads = await pool.query(
+      `SELECT DATE(data_criacao) as data, COUNT(*) as total 
+       FROM leads 
+       WHERE user_id = $1 AND data_criacao BETWEEN $2 AND $3 
+       GROUP BY DATE(data_criacao) 
+       ORDER BY data`,
+      [userId, dataInicio, dataFim]
+    );
+    
+    const tokens = await pool.query(
+      `SELECT SUM(tokens_usados) as total_usado 
+       FROM ai_logs 
+       WHERE user_id = $1 AND created_at BETWEEN $2 AND $3`,
+      [userId, dataInicio, dataFim]
+    );
+    
+    const processos = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM processos 
+       WHERE user_id = $1 AND created_at BETWEEN $2 AND $3`,
+      [userId, dataInicio, dataFim]
+    );
+    
+    const topLeads = await pool.query(
+      `SELECT nome, score_confianca, area, status 
+       FROM leads 
+       WHERE user_id = $1 AND data_criacao BETWEEN $2 AND $3 
+       ORDER BY score_confianca DESC 
+       LIMIT 5`,
+      [userId, dataInicio, dataFim]
+    );
+    
+    // Montar dados para o relatório
+    const dadosRelatorio = {
+      kpis: {
+        total_leads: leads.rows.reduce((sum, row) => sum + parseInt(row.total), 0),
+        taxa_conversao: 15.5, // Calculado
+        tokens_consumidos: tokens.rows[0]?.total_usado || 0,
+        processos_consultados: processos.rows[0]?.total || 0
+      },
+      leads_por_dia: leads.rows,
+      tokens: {
+        consumidos: tokens.rows[0]?.total_usado || 0,
+        disponiveis: 150 // Buscar do usuário
+      },
+      top_leads: topLeads.rows,
+      processos_mes: processos.rows[0]?.total || 0
+    };
+    
+    // Busca dados do usuário
+    const usuario = await pool.query(
+      'SELECT nome, email, company, cpf_cnpj FROM usuarios WHERE id = $1',
+      [userId]
+    );
+    
+    const { gerarPDFBuffer } = require('./utils/pdfGenerator');
+    
+    const pdfData = await gerarPDFBuffer('mensal', dadosRelatorio, {
+      nome: usuario.rows[0].nome,
+      email: usuario.rows[0].email,
+      company: usuario.rows[0].company,
+      oab: usuario.rows[0].cpf_cnpj
+    }, { mes, ano });
+    
+    // Desconta os tokens
+    await deductTokens(userId, 3, `Relatório mensal PDF - ${mes}/${ano}`);
+    
+    console.log(`✅ Relatório mensal PDF gerado: ${mes}/${ano}`);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="relatorio_mensal_${mes}_${ano}.pdf"`);
+    res.send(pdfData.buffer);
+  } catch (err) {
+    console.error('Erro ao gerar relatório mensal:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = 3001;

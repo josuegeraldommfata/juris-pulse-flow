@@ -16,19 +16,20 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role: AppRole) => Promise<void>;
   logout: () => void;
   switchRole: () => void;
 }
+
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 const MOCK_ADMIN: User = {
   id: '1',
   name: 'Carlos Admin',
-  email: 'admin@jurisai.com',
+  email: 'admin@advocatus.com.br',
   role: 'admin',
-  office: 'JurisAI HQ',
+  office: 'Advocatus HQ',
   tokensAvailable: 9500,
   tokensConsumed: 3200,
   tokensTotal: 12700,
@@ -47,7 +48,7 @@ const MOCK_INTEGRADOR: User = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('juris_user');
+    const saved = localStorage.getItem('advocatus_user');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (response.ok) {
         setUser(data);
-        localStorage.setItem('juris_user', JSON.stringify(data));
+        localStorage.setItem('advocatus_user', JSON.stringify(data));
       } else {
         throw new Error(data.error || 'Erro ao fazer login');
       }
@@ -74,25 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('juris_user');
+    localStorage.removeItem('advocatus_user');
   }, []);
 
   const switchRole = useCallback(() => {
-    // Apenas para conveniência em dev, no real o user teria que deslogar
-    setUser(prev => {
-      if (!prev) return null;
-      const newUser = { ...prev, role: prev.role === 'admin' ? 'integrador' : 'admin' } as User;
-      localStorage.setItem('juris_user', JSON.stringify(newUser));
-      return newUser;
-    });
+    // Bloqueado: integrador não pode virar admin.
+    // (A troca de role via UI não deve existir em produção.)
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login: login as any, logout, switchRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout, switchRole }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
 
 export function useAuth() {
   const ctx = useContext(AuthContext);

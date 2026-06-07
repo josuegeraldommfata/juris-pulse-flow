@@ -9,7 +9,7 @@ const pool = new Pool({
 });
 
 // Middleware para verificar se o usuário tem tokens suficientes
-async function checkTokens(tokensRequired) {
+function checkTokens(tokensRequired) {
   return async (req, res, next) => {
     try {
       const userId = req.userId;

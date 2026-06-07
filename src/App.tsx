@@ -15,6 +15,9 @@ import AdminPage from "@/pages/AdminPage";
 import SystemStatusPage from "@/pages/SystemStatusPage";
 import ApiConnectionsPage from "@/pages/ApiConnectionsPage";
 import ScriptEditorPage from "@/pages/ScriptEditorPage";
+import DocumentGeneratorPage from "@/pages/DocumentGeneratorPage";
+import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
+import TermsOfServicePage from "@/pages/TermsOfServicePage";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -22,16 +25,20 @@ const queryClient = new QueryClient();
 
 import { useAuth } from "@/contexts/AuthContext";
 
+import { ThemeProvider } from "next-themes";
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <AuthProvider>
-          <AppRouter />
-        </AuthProvider>
-      </TooltipProvider>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AuthProvider>
+            <AppRouter />
+          </AuthProvider>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
@@ -40,9 +47,11 @@ const AppRouter = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={!isAuthenticated ? <Index /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
         <Route 
           path="/dashboard" 
           element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/" replace />}
@@ -53,6 +62,7 @@ const AppRouter = () => {
           <Route path="leads" element={<LeadsPage />} />
           <Route path="leads/:id" element={<LeadDetailPage />} />
           <Route path="kanban" element={<KanbanPage />} />
+          <Route path="documents" element={<DocumentGeneratorPage />} />
           <Route path="admin" element={<AdminPage />} />
           <Route path="status" element={<SystemStatusPage />} />
           <Route path="api-connections" element={<ApiConnectionsPage />} />

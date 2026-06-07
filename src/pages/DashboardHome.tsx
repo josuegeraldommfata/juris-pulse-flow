@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, MessageSquare, Brain, BarChart3, TrendingUp, Calendar, ArrowUpRight } from 'lucide-react';
+import { Users, MessageSquare, Brain, BarChart3, TrendingUp, Calendar, ArrowUpRight, Mail } from 'lucide-react';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '@/services/api';
+import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
+import { LeadOriginChart } from '@/components/dashboard/LeadOriginChart';
+import { ClientRanking } from '@/components/dashboard/ClientRanking';
+import { AISuccessRate } from '@/components/dashboard/AISuccessRate';
+import { AIErrorLogs } from '@/components/dashboard/AIErrorLogs';
+
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -25,11 +32,26 @@ export default function DashboardHome() {
   });
 
   const metrics = [
-    { label: 'Total de Leads', value: stats?.totalLeads || 0, icon: Users, color: 'text-primary' },
-    { label: 'Em Triagem', value: parseInt(stats?.leadsByStage?.find((s: any) => s.stage === 'triagem')?.count || '0'), icon: MessageSquare, color: 'text-accent' },
-    { label: 'Docs Pendentes', value: parseInt(stats?.leadsByStage?.find((s: any) => s.stage === 'documentacao')?.count || '0'), icon: Brain, color: 'text-amber-500' },
-    { label: 'Conversão', value: '12%', icon: BarChart3, color: 'text-emerald-500' },
+    { label: 'Total de Leads', value: stats?.totalLeads ?? 0, icon: Users, color: 'text-primary' as const },
+    {
+      label: 'Em Triagem',
+      value: Number(
+        stats?.leadsByStage?.find((s: { stage: string }) => s.stage === 'triagem')?.count ?? 0
+      ),
+      icon: MessageSquare,
+      color: 'text-accent' as const,
+    },
+    {
+      label: 'Docs Pendentes',
+      value: Number(
+        stats?.leadsByStage?.find((s: { stage: string }) => s.stage === 'documentacao')?.count ?? 0
+      ),
+      icon: Brain,
+      color: 'text-amber-500' as const,
+    },
+    { label: 'Conversão', value: '12%', icon: BarChart3, color: 'text-emerald-500' as const },
   ];
+
 
   return (
     <div className={`space-y-6 max-w-7xl mx-auto ${blurValues ? 'blur-values' : ''}`}>
@@ -65,12 +87,12 @@ export default function DashboardHome() {
           <div className="glass-card rounded-2xl p-6 border border-border/50">
             <h3 className="text-lg font-semibold text-foreground mb-6">Volume por Estágio</h3>
             <div className="h-[250px] flex items-end justify-between gap-4">
-               {['triagem', 'documentacao', 'aguardando', 'contrato'].map((stage) => {
-                 const count = parseInt(stats?.leadsByStage?.find((s: any) => s.stage === stage)?.count || '0');
-                 const height = stats?.totalLeads ? (count / stats.totalLeads) * 100 : 5;
-                 return (
+              {['triagem', 'documentacao', 'aguardando', 'contrato'].map((stage) => {
+                const count = parseInt(stats?.leadsByStage?.find((s: any) => s.stage === stage)?.count || '0');
+                const height = stats?.totalLeads ? (count / stats.totalLeads) * 100 : 5;
+                return (
                   <div key={stage} className="flex-1 flex flex-col items-center gap-2 group">
-                    <div 
+                    <div
                       className="w-full bg-primary/20 hover:bg-primary/40 rounded-t-lg transition-all duration-500 relative min-h-[10px]"
                       style={{ height: `${height}%` }}
                     >
@@ -80,28 +102,57 @@ export default function DashboardHome() {
                     </div>
                     <span className="text-[10px] text-muted-foreground uppercase">{stage}</span>
                   </div>
-                 );
-               })}
+                );
+              })}
             </div>
+          </div>
+
+          {/* Cards em 2 colunas (abaixo do Volume por Estágio) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <PerformanceChart />
+            <LeadOriginChart />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <AISuccessRate />
+            <AIErrorLogs />
+          </div>
+
+          {/* Ranking no final, ocupando a largura toda */}
+          <div>
+            <ClientRanking />
           </div>
         </motion.div>
 
+        {/* Direita: Ações rápidas */}
         <motion.div initial="hidden" animate="visible" custom={6} variants={fadeIn} className="space-y-6">
           <div className="glass-card rounded-2xl p-6 border border-border/50">
             <h3 className="text-lg font-semibold text-foreground mb-4">Ações Rápidas</h3>
             <div className="grid grid-cols-1 gap-2">
-              <button className="flex items-center gap-3 p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+              <button
+                onClick={() => (window.location.href = '/dashboard/leads')}
+                className="flex items-center gap-3 p-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
                 <Calendar className="h-4 w-4" />
-                <span className="text-sm font-medium">Ver Agenda</span>
+                <span className="text-sm font-medium">Ver Dossiê</span>
               </button>
-              <button className="flex items-center gap-3 p-3 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition-colors">
+
+
+              <button
+                onClick={() => (window.location.href = '/dashboard/wallet')}
+                className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors"
+              >
                 <ArrowUpRight className="h-4 w-4" />
-                <span className="text-sm font-medium">Exportar Relatório</span>
+                <span className="text-sm font-medium">Comprar Tokens</span>
               </button>
+
+
             </div>
           </div>
         </motion.div>
       </div>
+
+
     </div>
   );
 }

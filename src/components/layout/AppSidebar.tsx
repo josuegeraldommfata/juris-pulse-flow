@@ -12,6 +12,7 @@ import {
   Activity,
   Plug,
   FileText,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,25 +23,21 @@ const urgentCount = mockLeads.filter(l => l.score === 'hot').length;
 const integradorLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
-  { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
-  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter, badge: urgentCount },
-  { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
-  { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
-  { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
-  { to: '/dashboard/script-editor', label: 'Roteiro IA', icon: FileText },
+  { to: '/dashboard/leads', label: 'Leads & Clientes', icon: Filter, badge: urgentCount },
+  { to: '/dashboard/kanban', label: 'Pipeline', icon: Columns3 },
+  { to: '/dashboard/documents', label: 'Documentos IA', icon: Brain },
+  { to: '/dashboard/wallet', label: 'Créditos & Planos', icon: Wallet },
+  { to: '/dashboard/status', label: 'Relatórios', icon: Activity },
+  { to: '/dashboard/api-connections', label: 'Integrações', icon: Plug },
+  { to: '/dashboard/script-editor', label: 'Configurações', icon: FileText },
 ];
 
 const adminLinks = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/dashboard/admin', label: 'Painel Admin', icon: Users },
-  { to: '/dashboard/whatsapp', label: 'WhatsApp', icon: MessageSquare },
-  { to: '/dashboard/wallet', label: 'Wallet & Tokens', icon: Wallet },
-  { to: '/dashboard/leads', label: 'Triagem de Leads', icon: Filter, badge: urgentCount },
-  { to: '/dashboard/kanban', label: 'Kanban', icon: Columns3 },
-  { to: '/dashboard/status', label: 'Status do Sistema', icon: Activity },
-  { to: '/dashboard/api-connections', label: 'Conexões de API', icon: Plug },
-  { to: '/dashboard/script-editor', label: 'Roteiro IA', icon: FileText },
+  { to: '/dashboard/status', label: 'Relatórios', icon: Activity },
+  { to: '/dashboard/api-connections', label: 'Integrações', icon: Plug },
+  { to: '/dashboard/admin', label: 'Administração', icon: Users },
 ];
+
 
 interface Props {
   open: boolean;
@@ -62,9 +59,13 @@ export function AppSidebar({ open, onClose }: Props) {
       <div className="h-16 flex items-center justify-between px-5 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center glow-electric">
-            <Zap className="h-4 w-4 text-primary" />
+            <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+              <path d="M8 21V19H16V21H8Z"/>
+              <path d="M6 19V17H18V19H6Z"/>
+            </svg>
           </div>
-          <span className="font-bold text-lg text-gradient-electric">JurisAI</span>
+          <span className="font-bold text-lg text-gradient-electric">Advocatus</span>
         </div>
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={onClose}>
           <X className="h-4 w-4" />

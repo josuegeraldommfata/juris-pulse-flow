@@ -107,7 +107,7 @@ export function CheckoutTransparente({
     setProcessando(true);
 
     try {
-      const userId = JSON.parse(localStorage.getItem('juris_user') || '{}').id;
+      const userId = JSON.parse(localStorage.getItem('advocatus_user') || '{}').id;
 
       const response = await axios.post('http://localhost:3001/api/payment/process-card', {
         valor,
@@ -157,7 +157,7 @@ export function CheckoutTransparente({
     setProcessando(true);
 
     try {
-      const userId = JSON.parse(localStorage.getItem('juris_user') || '{}').id;
+      const userId = JSON.parse(localStorage.getItem('advocatus_user') || '{}').id;
 
       const response = await axios.post('http://localhost:3001/api/payment/checkout', {
         valor,
@@ -194,7 +194,7 @@ export function CheckoutTransparente({
     setProcessando(true);
 
     try {
-      const userId = JSON.parse(localStorage.getItem('juris_user') || '{}').id;
+      const userId = JSON.parse(localStorage.getItem('advocatus_user') || '{}').id;
 
       const response = await axios.post('http://localhost:3001/api/payment/checkout', {
         valor,

@@ -77,9 +77,16 @@ export const mockSystemHealth = [
   { name: 'Evolution API', status: 'online' as const, latency: '45ms', uptime: '99.9%', lastCheck: '2026-03-29T14:30:00' },
   { name: 'PostgreSQL', status: 'online' as const, latency: '12ms', uptime: '99.99%', lastCheck: '2026-03-29T14:30:00' },
   { name: 'n8n Workflows', status: 'online' as const, latency: '120ms', uptime: '99.5%', lastCheck: '2026-03-29T14:30:00' },
-  { name: 'Mercado Pago', status: 'warning' as const, latency: '340ms', uptime: '98.2%', lastCheck: '2026-03-29T14:25:00' },
+
+  // Chatwoot (novo card)
+  { name: 'Chatwoot', status: 'online' as const, latency: '220ms', uptime: '99.1%', lastCheck: '2026-03-29T14:29:00' },
+
   { name: 'OpenAI GPT', status: 'online' as const, latency: '890ms', uptime: '99.7%', lastCheck: '2026-03-29T14:30:00' },
 ];
+
+
+
+
 
 export type KanbanStage = 'triagem' | 'documentacao' | 'aguardando' | 'contrato';
 
@@ -89,3 +96,5 @@ export const kanbanColumns: { id: KanbanStage; title: string }[] = [
   { id: 'aguardando', title: 'Aguardando Advogado' },
   { id: 'contrato', title: 'Contrato Assinado' },
 ];
+
+

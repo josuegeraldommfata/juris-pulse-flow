@@ -8,11 +8,24 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "playwright": "^1.43.1",
-    "pg": "^8.11.5",
-    "dotenv": "^16.4.5",
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
-    "axios": "^1.6.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.1.5",
+    "express-slow-down": "^2.0.1",
+    "express-validator": "^7.0.1",
+    "groq-sdk": "^1.2.1",
+    "helmet": "^7.1.0",
+    "html-pdf": "^3.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.13.0",
+    "pg": "^8.11.5",
+    "playwright": "^1.43.1",
+    "puppeteer": "^21.7.0",
+    "validator": "^13.11.0",
+    "xss": "^1.0.14"
   }
 }

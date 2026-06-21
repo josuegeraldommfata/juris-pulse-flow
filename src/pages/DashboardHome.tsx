@@ -28,7 +28,11 @@ export default function DashboardHome() {
       const res = await apiService.getIntegratorStats(user.id);
       return res.data;
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const metrics = [

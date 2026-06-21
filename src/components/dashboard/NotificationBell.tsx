@@ -27,6 +27,9 @@ export function NotificationBell() {
     },
     enabled: !!user?.id,
     refetchInterval: 30000,
+    staleTime: 30000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const unread = notifications.filter((n: any) => !n.read).length;

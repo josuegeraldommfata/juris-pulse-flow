@@ -43,11 +43,16 @@ const App = () => {
   );
 };
 
+import { TrialExpiredModal } from "@/components/TrialExpiredModal";
+
 const AppRouter = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isTrialExpired } = useAuth();
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {/* Bloqueio de trial — sobrepõe tudo quando expirado */}
+      {isAuthenticated && isTrialExpired && <TrialExpiredModal />}
+
       <Routes>
         <Route path="/" element={!isAuthenticated ? <Index /> : <Navigate to="/dashboard" replace />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />

@@ -76,6 +76,7 @@ app.use(generalLimiter); // Rate limiting global
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:8080',
+  'http://localhost:8081',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -163,48 +164,90 @@ app.get('/api/notifications', async (req, res) => {
 // --- WHATSAPP PROXIES ---
 app.get('/api/evolution/instances', async (req, res) => {
   try {
-    const response = await axios.get(`${process.env.EVOLUTION_API_URL}/instance/fetchInstances`, {
-      headers: { 'apikey': process.env.EVOLUTION_API_KEY }
+    const url = `${process.env.EVOLUTION_API_URL}/instance/fetchInstances`;
+    console.log('Fetching Evolution instances from', url);
+    const response = await axios.get(url, {
+      headers: { apikey: process.env.EVOLUTION_API_KEY },
     });
     res.json(response.data);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    console.error('Error fetching Evolution instances:', error.message, error.response?.data);
+    const status = error.response?.status || 500;
+    const details = error.response?.data || null;
+    if (!error.response) {
+      console.warn('Evolution API unreachable, returning empty instance list');
+      return res.json([]);
+    }
+    res.status(status).json({ error: error.message, details });
+  }
 });
 
 app.post('/api/evolution/create', async (req, res) => {
   try {
-    const { instanceName, userId } = req.body;
-    console.log(`🚀 Criando Robô para Usuário ID ${userId}: ${instanceName}`);
-    
-    const response = await axios.post(`${process.env.EVOLUTION_API_URL}/instance/create`, {
-      instanceName, 
-      integration: "WHATSAPP-BAILEYS", 
-      qrcode: true
-    }, { headers: { 'apikey': process.env.EVOLUTION_API_KEY } });
+    const { instanceName, userId, botName } = req.body;
+    const displayName = botName || instanceName;
+    console.log(`🚀 Criando Robô "${displayName}" para Usuário ID ${userId}: ${instanceName}`);
 
-    // Configura o Webhook injetando o userId na URL para o n8n saber quem é o dono do lead
-    if (process.env.EVOLUTION_WEBHOOK_URL) {
-      const webhookUrlWithId = `${process.env.EVOLUTION_WEBHOOK_URL}?userId=${userId}`;
-      await axios.post(`${process.env.EVOLUTION_API_URL}/webhook/set/${instanceName}`, {
-        url: webhookUrlWithId, 
-        enabled: true, 
-        events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"]
-      }, { headers: { 'apikey': process.env.EVOLUTION_API_KEY } }).catch(e => console.error('Erro Webhook:', e.message));
+    // URL do webhook do n8n registrada DENTRO da instância Evolution
+    // Quando mensagem chegar, Evolution chama esse webhook automaticamente (sem config manual)
+    const evolutionWebhookUrl = process.env.EVOLUTION_WEBHOOK_URL
+      ? `${process.env.EVOLUTION_WEBHOOK_URL}?userId=${userId}&botName=${encodeURIComponent(displayName)}`
+      : null;
+
+    const response = await axios.post(
+      `${process.env.EVOLUTION_API_URL}/instance/create`,
+      {
+        instanceName,
+        integration: 'WHATSAPP-BAILEYS',
+        qrcode: true,
+        ...(evolutionWebhookUrl
+          ? {
+              webhook: {
+                url: evolutionWebhookUrl,
+                enabled: true,
+                events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+              },
+            }
+          : {}),
+      },
+      { headers: { apikey: process.env.EVOLUTION_API_KEY } }
+    );
+
+    console.log(`✅ Instância "${instanceName}" criada!`);
+    if (evolutionWebhookUrl) {
+      console.log(`🔗 Webhook n8n registrado: ${evolutionWebhookUrl}`);
+      console.log(`   → Cliente manda msg → Evolution → n8n automaticamente`);
     }
-    
+
     res.json(response.data);
-  } catch (error) { 
-    res.status(500).json({ error: error.response?.data || error.message }); 
+  } catch (error) {
+    console.error('❌ Erro ao criar instância:', error.message);
+    console.error('❌ Evolution API response:', JSON.stringify(error.response?.data));
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      details: error.response?.data || null,
+    });
   }
 });
+
 
 app.post('/api/evolution/qrcode', async (req, res) => {
   try {
     const { instanceName } = req.body;
-    const response = await axios.get(`${process.env.EVOLUTION_API_URL}/instance/connect/${instanceName}`, {
-      headers: { 'apikey': process.env.EVOLUTION_API_KEY }
-    });
+    console.log(`📷 Buscando QR Code para instância: ${instanceName}`);
+    const response = await axios.get(
+      `${process.env.EVOLUTION_API_URL}/instance/connect/${instanceName}`,
+      { headers: { apikey: process.env.EVOLUTION_API_KEY } }
+    );
+    console.log(`✅ QR Code retornado para ${instanceName}:`, JSON.stringify(response.data).substring(0, 120));
     res.json(response.data);
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) {
+    console.error('❌ Erro QR Code:', error.message, JSON.stringify(error.response?.data));
+    res.status(error.response?.status || 500).json({
+      error: error.message,
+      details: error.response?.data || null,
+    });
+  }
 });
 
 app.post('/api/evolution/disconnect', async (req, res) => {
@@ -225,6 +268,90 @@ app.post('/api/evolution/restart', async (req, res) => {
     });
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// =============================================================
+// 🗑️ DELETAR INSTÂNCIA WHATSAPP (Evolution + banco)
+// =============================================================
+app.delete('/api/evolution/delete', async (req, res) => {
+  try {
+    const { instanceName } = req.body;
+    if (!instanceName) return res.status(400).json({ error: 'instanceName é obrigatório' });
+
+    // Remove no Evolution API
+    // (Endpoint pode variar por versão; este assume /instance/delete/:name)
+    await axios.delete(`${process.env.EVOLUTION_API_URL}/instance/delete/${instanceName}`, {
+      headers: { apikey: process.env.EVOLUTION_API_KEY }
+    });
+
+    // Remove no banco
+    await pool.query('DELETE FROM whatsapp_instances WHERE instance_name = $1', [instanceName]);
+
+    // Segurança extra: se houver leads/conversas vinculados por fk, o schema protege via constraints
+    res.json({ success: true, deleted: instanceName });
+  } catch (error) {
+    res.status(500).json({ error: error.response?.data || error.message });
+  }
+});
+
+
+// =============================================================
+// 🚀 REGISTRO DE NOVO USUÁRIO (Trial 3 dias)
+// =============================================================
+app.post('/api/register', loginLimiter, async (req, res) => {
+  try {
+    const { name, email, password, company, phone, planId } = req.body;
+
+    if (!name || !email || !password || !company) {
+      return res.status(400).json({ error: 'Nome, e-mail, senha e empresa são obrigatórios.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+    }
+
+    // Verifica se e-mail já existe
+    const existing = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+    }
+
+    // Hash da senha
+    const hashedPassword = await hashPassword(password);
+
+    // Trial expira em 3 dias
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 3);
+
+    // Cria o usuário com tokens iniciais e trial
+    const result = await pool.query(
+      `INSERT INTO usuarios (nome, email, senha, company, telefone, role, status, tokens_available, tokens_total, trial_expires_at, plan_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'integrador', 'active', 50, 50, $6, NULL, NOW())
+       RETURNING id, nome as name, email, company, tokens_available, trial_expires_at`,
+      [name, email, hashedPassword, company, phone || null, trialExpiresAt]
+    );
+
+    const newUser = result.rows[0];
+
+    // Gera token JWT
+    const token = generateSecureToken(newUser.id, newUser.email);
+
+    console.log(`✅ Novo usuário registrado: ${email} | Trial até: ${trialExpiresAt.toISOString()} | Plano desejado: ${planId}`);
+
+    res.status(201).json({
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      company: newUser.company,
+      role: 'integrador',
+      tokensAvailable: newUser.tokens_available,
+      trialExpiresAt: newUser.trial_expires_at,
+      planId: null,
+      token,
+    });
+  } catch (err) {
+    console.error('Erro no registro:', err);
+    res.status(500).json({ error: 'Erro interno ao criar conta.' });
+  }
 });
 
 app.post('/api/login', loginLimiter, logSecurityEvent('login_attempt'), async (req, res) => {
@@ -295,13 +422,45 @@ app.post('/api/login', loginLimiter, logSecurityEvent('login_attempt'), async (r
       token, // Token JWT para autenticação
       tokensAvailable: user.tokens_available || 0,
       tokensConsumed: user.tokens_consumed || 0,
-      tokensTotal: user.tokens_total || 0
+      tokensTotal: user.tokens_total || 0,
+      trialExpiresAt: user.trial_expires_at,
+      planId: user.plan_id
     });
   } catch (err) { 
     securityLogger('login_error', { error: err.message, email }, req);
     res.status(500).json({ error: 'Erro interno do servidor' }); 
   }
 });
+
+// GET /api/me - Retorna informações do usuário atual baseado no JWT
+app.get('/api/me', verifySecureToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, nome as name, email, role, company, tokens_available, tokens_consumed, tokens_total, trial_expires_at, plan_id, telefone FROM usuarios WHERE id = $1',
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    const user = result.rows[0];
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company: user.company,
+      tokensAvailable: user.tokens_available || 0,
+      tokensConsumed: user.tokens_consumed || 0,
+      tokensTotal: user.tokens_total || 0,
+      trialExpiresAt: user.trial_expires_at,
+      planId: user.plan_id,
+      phone: user.telefone
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // =============================================================
 // 💰 SISTEMA DE TOKENS E WALLET
@@ -674,19 +833,73 @@ app.post('/api/leads/:id/export', verifySecureToken, checkTokens(1), async (req,
 
 app.post('/api/webhook/whatsapp', async (req, res) => {
   try {
-    const { event, data } = req.body;
-    
-    console.log('📱 Webhook recebido:', event);
-    
+    console.log('🧩 Webhook handler hit:', {
+      method: req.method,
+      path: req.path,
+      bodyType: req.body ? typeof req.body : 'null',
+      bodyKeys: req.body && typeof req.body === 'object' ? Object.keys(req.body) : null,
+    });
+
+    const body = req.body || {};
+    // Evolution/n8n podem mandar payloads diferentes; normaliza aqui
+    const event =
+      body.event ||
+      body.type ||
+      body.name ||
+      body?.payload?.event ||
+      body?.payload?.type;
+
+    const data = body.data || body?.payload?.data || body?.payload || {};
+
+    console.log('📱 Webhook recebido:', {
+      event,
+      hasData: !!data,
+      keys: data && typeof data === 'object' ? Object.keys(data) : null,
+    });
+
     // Se for mensagem recebida
-    if (event === 'messages.upsert') {
-      const message = data.messages[0];
+    if (event === 'messages.upsert' || event === 'messages_upsert') {
+      const messages = data?.messages || data?.payload?.messages || [];
+      if (!Array.isArray(messages) || messages.length === 0) {
+        console.warn('⚠️ Webhook sem messages');
+        return res.json({ success: true, ignored: true });
+      }
+
+      const message = messages[0];
+
+      // Log mínimo pra depurar o payload vindo do n8n/evolution
+      try {
+        const remoteJid = message?.key?.remoteJid;
+        const fromMe = message?.key?.fromMe;
+        const textPreview =
+          message?.message?.conversation ||
+          message?.message?.extendedTextMessage?.text ||
+          message?.message?.extendedTextMessage?.caption ||
+          '';
+        console.log('📩 Webhook msg preview:', {
+          event,
+          remoteJid,
+          fromMe,
+          textPreview: typeof textPreview === 'string' ? textPreview.slice(0, 80) : null,
+        });
+      } catch (e) {}
+
       const userId = req.query.userId; // Vem da URL configurada no webhook
-      
-      if (!message.key.fromMe) { // Ignora mensagens enviadas por nós
-        const telefone = message.key.remoteJid.replace('@s.whatsapp.net', '');
-        const texto = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
-        
+
+      if (!userId) {
+        console.warn('⚠️ userId ausente na query do webhook (ignorado)');
+        return res.json({ success: true, ignored: true });
+      }
+
+      if (!message?.key?.fromMe) { // Ignora mensagens enviadas por nós
+        const remoteJid = message?.key?.remoteJid || '';
+        const telefone = remoteJid.replace('@s.whatsapp.net', '');
+        const texto =
+          message.message?.conversation ||
+          message.message?.extendedTextMessage?.text ||
+          message.message?.extendedTextMessage?.caption ||
+          '';
+
         // Verifica se já existe lead com este telefone
         let lead = await pool.query(
           'SELECT id FROM leads WHERE telefone = $1 AND user_id = $2',
@@ -1029,6 +1242,12 @@ app.post('/api/payment/create-subscription', authenticateUser, async (req, res) 
         [userId, plano_id, resultado.subscription_id]
       );
 
+      // Atualiza o plano_id do usuário na tabela usuarios
+      await pool.query(
+        `UPDATE usuarios SET plan_id = $1 WHERE id = $2`,
+        [plano_id, userId]
+      );
+
       res.json({
         success: true,
         subscription: resultado
@@ -1082,6 +1301,14 @@ app.post('/api/webhook/cakto', async (req, res) => {
           'UPDATE transacoes SET status = $1 WHERE id = $2',
           ['completed', trans.id]
         );
+
+        // Se a transação/metadata possui plano_id, atualiza o plano do usuário
+        if (data.metadata && data.metadata.plano_id) {
+          await pool.query(
+            'UPDATE usuarios SET plan_id = $1 WHERE id = $2',
+            [data.metadata.plano_id, trans.user_id]
+          );
+        }
 
         // Cria notificação
         await pool.query(

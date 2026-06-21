@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,11 @@ import {
   Sparkles,
   Lock,
   Workflow,
-  Coins
+  Coins,
+  UserPlus,
+  Eye,
+  EyeOff,
+  Rocket
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -38,10 +42,68 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"whatsapp" | "documents" | "crm">("whatsapp");
+
+  // Cadastro
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regCompany, setRegCompany] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [showRegPwd, setShowRegPwd] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
-  const { login } = useAuth();
+  const { login, register } = useAuth();
+
+  const handleOpenRegister = (planId: string) => {
+    setSelectedPlan(planId);
+    setRegName(''); setRegEmail(''); setRegCompany(''); setRegPassword(''); setRegPhone('');
+    setIsRegisterOpen(true);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regName || !regEmail || !regPassword || !regCompany) {
+      toast.error('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    setIsRegistering(true);
+    try {
+      await register({ name: regName, email: regEmail, password: regPassword, company: regCompany, phone: regPhone, planId: selectedPlan });
+      setIsRegisterOpen(false);
+      toast.success('🎉 Conta criada! Aproveite seus 3 dias de Trial gratuito.');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao criar conta.');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  // Auto-play: avança a cada 4s, pausa ao hover
+  useEffect(() => {
+    if (isPaused) return;
+    autoPlayRef.current = setInterval(() => {
+      setDirection('next');
+      setTestimonialIdx((prev) => (prev + 3) % 15);
+    }, 4000);
+    return () => { if (autoPlayRef.current) clearInterval(autoPlayRef.current); };
+  }, [isPaused, testimonialIdx]);
+
+  const handlePrev = () => {
+    setDirection('prev');
+    setTestimonialIdx((prev) => (prev - 3 + 15) % 15);
+  };
+  const handleNext = () => {
+    setDirection('next');
+    setTestimonialIdx((prev) => (prev + 3) % 15);
+  };
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -642,56 +704,79 @@ const Index = () => {
             </p>
           </div>
 
-          <div className="relative max-w-5xl mx-auto">
-            {/* Contêiner de slides */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[0, 1, 2].map((offset) => {
-                const idx = (testimonialIdx + offset) % testimonials.length;
-                const test = testimonials[idx];
-                return (
-                  <motion.div
-                    key={`${test.name}-${idx}`}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4 }}
-                    className={`glass-card rounded-2xl p-6 border border-border/40 hover:border-primary/30 transition-all flex flex-col justify-between shadow-lg bg-card/25 min-h-[220px] ${
-                      offset === 1 ? "hidden md:flex" : offset === 2 ? "hidden lg:flex" : "flex"
-                    }`}
-                  >
-                    <div className="space-y-4">
-                      <div className="flex gap-0.5">
-                        {[...Array(test.rating)].map((_, i) => (
-                          <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                        ))}
+          <div
+            className="relative max-w-5xl mx-auto"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+          >
+            {/* Contêiner de slides com animação de entrada/saída */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={testimonialIdx}
+                initial={{ opacity: 0, x: direction === 'next' ? 80 : -80 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: direction === 'next' ? -80 : 80 }}
+                transition={{ duration: 0.45, ease: 'easeInOut' }}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                {[0, 1, 2].map((offset) => {
+                  const idx = (testimonialIdx + offset) % testimonials.length;
+                  const test = testimonials[idx];
+                  return (
+                    <div
+                      key={`${test.name}-${idx}`}
+                      className={`glass-card rounded-2xl p-6 border border-border/40 hover:border-primary/30 transition-all flex flex-col justify-between shadow-lg bg-card/25 min-h-[220px] ${
+                        offset === 1 ? 'hidden md:flex' : offset === 2 ? 'hidden lg:flex' : 'flex'
+                      }`}
+                    >
+                      <div className="space-y-4">
+                        <div className="flex gap-0.5">
+                          {[...Array(test.rating)].map((_, i) => (
+                            <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                          ))}
+                        </div>
+                        <p className="text-xs sm:text-sm text-foreground italic leading-relaxed min-h-[90px]">
+                          "{test.text}"
+                        </p>
                       </div>
-                      <p className="text-xs sm:text-sm text-foreground italic leading-relaxed min-h-[90px]">
-                        "{test.text}"
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/20">
-                      <img
-                        src={test.avatar}
-                        alt={test.name}
-                        className="h-10 w-10 rounded-full border border-primary/20 object-cover shrink-0"
-                      />
-                      <div>
-                        <h4 className="text-xs font-bold text-foreground">{test.name}</h4>
-                        <p className="text-[10px] text-muted-foreground font-medium">{test.role}</p>
+
+                      <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border/20">
+                        <img
+                          src={test.avatar}
+                          alt={test.name}
+                          className="h-10 w-10 rounded-full border border-primary/20 object-cover shrink-0"
+                        />
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground">{test.name}</h4>
+                          <p className="text-[10px] text-muted-foreground font-medium">{test.role}</p>
+                        </div>
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Barra de progresso do auto-play */}
+            {!isPaused && (
+              <div className="mt-6 h-0.5 bg-border/40 rounded-full overflow-hidden">
+                <motion.div
+                  key={testimonialIdx + '-bar'}
+                  className="h-full bg-primary rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: 4, ease: 'linear' }}
+                />
+              </div>
+            )}
 
             {/* Controles do Slideshow */}
-            <div className="flex items-center justify-center gap-6 mt-10">
+            <div className="flex items-center justify-center gap-6 mt-6">
               <Button
                 variant="outline"
                 size="icon"
                 className="h-10 w-10 rounded-full border-border/60 hover:bg-muted"
-                onClick={() => setTestimonialIdx((prev) => (prev - 3 + testimonials.length) % testimonials.length)}
+                onClick={handlePrev}
                 title="Depoimentos Anteriores"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -704,9 +789,9 @@ const Index = () => {
                   return (
                     <button
                       key={dotIdx}
-                      onClick={() => setTestimonialIdx(startIdx)}
+                      onClick={() => { setDirection('next'); setTestimonialIdx(startIdx); }}
                       className={`h-2.5 rounded-full transition-all duration-300 ${
-                        isActive ? "w-8 bg-primary" : "w-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                        isActive ? 'w-8 bg-primary' : 'w-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
                       }`}
                       title={`Página ${dotIdx + 1}`}
                     />
@@ -718,12 +803,17 @@ const Index = () => {
                 variant="outline"
                 size="icon"
                 className="h-10 w-10 rounded-full border-border/60 hover:bg-muted"
-                onClick={() => setTestimonialIdx((prev) => (prev + 3) % testimonials.length)}
+                onClick={handleNext}
                 title="Próximos Depoimentos"
               >
                 <ArrowLeft className="h-5 w-5 rotate-180" />
               </Button>
             </div>
+
+            {/* Dica: passe o mouse para pausar */}
+            <p className="text-center text-[10px] text-muted-foreground/50 mt-3">
+              {isPaused ? '⏸ Pausado' : '▶ Passando automaticamente — passe o mouse para pausar'}
+            </p>
           </div>
         </div>
       </section>
@@ -752,8 +842,8 @@ const Index = () => {
               "Suporte por e-mail",
               "Acesso à API Evolution Básica"
             ]}
-            buttonText="Começar Iniciante"
-            onClick={() => handleOpenLogin("integrador")}
+            buttonText="Começar Trial Grátis"
+            onClick={() => handleOpenRegister('starter')}
           />
 
           {/* Plano Pro */}
@@ -770,8 +860,8 @@ const Index = () => {
               "Prioridade no processamento de IA"
             ]}
             isPopular
-            buttonText="Assinar Plano Pro"
-            onClick={() => handleOpenLogin("integrador")}
+            buttonText="Começar Trial Grátis"
+            onClick={() => handleOpenRegister('pro')}
           />
 
           {/* Plano Enterprise */}
@@ -788,7 +878,7 @@ const Index = () => {
               "SLA de atendimento de 99.9%"
             ]}
             buttonText="Falar com Especialista"
-            onClick={() => handleOpenLogin("admin")}
+            onClick={() => handleOpenRegister('enterprise')}
           />
         </div>
       </section>
@@ -931,12 +1021,10 @@ const Index = () => {
                       />
                     </div>
                     
-                    {/* Exibe aviso de credenciais para desenvolvimento */}
-                    <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-xl text-[10px] text-muted-foreground">
-                      <span className="font-bold text-primary block mb-0.5">Credenciais de Teste:</span>
-                      E-mail: <span className="font-mono">{email}</span><br />
-                      Senha: <span className="font-mono">{password}</span> (pressione acessar)
-                    </div>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Não tem conta?{' '}
+                      <button type="button" onClick={() => { setIsLoginOpen(false); handleOpenRegister('starter'); }} className="text-primary hover:underline font-semibold">Criar conta grátis</button>
+                    </p>
                   </CardContent>
                   
                   <CardFooter className="flex flex-col gap-2">
@@ -947,6 +1035,152 @@ const Index = () => {
                       Acesso Master Admin é exclusivo e não pode ser alternado no painel.
                     </div>
 
+                  </CardFooter>
+                </form>
+              </Card>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== MODAL DE CADASTRO ===== */}
+      <AnimatePresence>
+        {isRegisterOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setIsRegisterOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md z-10 my-8"
+            >
+              <Card className="glass-card border-border/80 shadow-2xl">
+                <button
+                  onClick={() => setIsRegisterOpen(false)}
+                  className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                <CardHeader>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-amber-400 to-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                      <Rocket className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Criar Conta Grátis</CardTitle>
+                      <p className="text-xs text-primary font-semibold">✨ 3 dias de trial completo</p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                    <p className="text-xs text-muted-foreground">
+                      Plano selecionado: <span className="font-bold text-foreground capitalize">{selectedPlan === 'starter' ? 'Iniciante' : selectedPlan === 'pro' ? 'Profissional' : 'Enterprise'}</span>
+                      <span className="ml-2 text-emerald-500 font-semibold">• 3 dias grátis, sem cartão</span>
+                    </p>
+                  </div>
+                </CardHeader>
+
+                <form onSubmit={handleRegister}>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-name" className="text-xs">Nome completo *</Label>
+                        <Input
+                          id="reg-name"
+                          placeholder="Dr. João Silva"
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          required
+                          className="bg-muted/40 border-border rounded-xl text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-phone" className="text-xs">Telefone</Label>
+                        <Input
+                          id="reg-phone"
+                          placeholder="(11) 9 0000-0000"
+                          value={regPhone}
+                          onChange={(e) => setRegPhone(e.target.value)}
+                          className="bg-muted/40 border-border rounded-xl text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-company" className="text-xs">Nome do escritório / empresa *</Label>
+                      <Input
+                        id="reg-company"
+                        placeholder="Silva & Associados Advogados"
+                        value={regCompany}
+                        onChange={(e) => setRegCompany(e.target.value)}
+                        required
+                        className="bg-muted/40 border-border rounded-xl text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-email" className="text-xs">E-mail profissional *</Label>
+                      <Input
+                        id="reg-email"
+                        type="email"
+                        placeholder="nome@escritorio.adv.br"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        required
+                        className="bg-muted/40 border-border rounded-xl text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-password" className="text-xs">Senha *</Label>
+                      <div className="relative">
+                        <Input
+                          id="reg-password"
+                          type={showRegPwd ? 'text' : 'password'}
+                          placeholder="Mínimo 6 caracteres"
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          minLength={6}
+                          required
+                          className="bg-muted/40 border-border rounded-xl text-sm pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPwd(!showRegPwd)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showRegPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      Ao criar sua conta, você concorda com os{' '}
+                      <a href="/terms" className="text-primary hover:underline">Termos de Serviço</a>{' '}e{' '}
+                      <a href="/privacy" className="text-primary hover:underline">Política de Privacidade</a>.
+                    </p>
+                  </CardContent>
+
+                  <CardFooter className="flex flex-col gap-3">
+                    <Button
+                      type="submit"
+                      className="w-full rounded-xl bg-primary hover:bg-primary/95 text-primary-foreground font-semibold py-5 shadow-lg shadow-primary/20"
+                      disabled={isRegistering}
+                    >
+                      {isRegistering
+                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando conta...</>
+                        : <><Rocket className="mr-2 h-4 w-4" /> Começar Trial Grátis</>}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Já tem conta?{' '}
+                      <button type="button" onClick={() => { setIsRegisterOpen(false); setIsLoginOpen(true); setSelectedRole('integrador'); }} className="text-primary hover:underline font-semibold">Fazer login</button>
+                    </p>
                   </CardFooter>
                 </form>
               </Card>

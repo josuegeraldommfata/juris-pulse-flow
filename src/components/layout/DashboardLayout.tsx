@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { HotLeadNotifier } from '@/components/dashboard/HotLeadNotifier';
@@ -14,8 +14,13 @@ import { SpecialistChatModal } from '@/components/dashboard/SpecialistChatModal'
 
 function DashboardLayoutContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { specialistId, isOpen, openChat, closeChat } = useSpecialistChat();
+
+  useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+    if (token) refreshUser();
+  }, [refreshUser]);
 
   return (
     <div className="flex min-h-screen">
